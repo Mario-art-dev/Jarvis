@@ -131,13 +131,13 @@ Si quieres usar Jarvis fuera de casa (no en la misma red), monta algo como
 `ws://` sigue funcionando por la red privada sin exponer el servidor a
 internet abierto.
 
-## 3. Generar el proyecto de Xcode
+## 3. Conseguir la app en tu iPhone
+
+### Opción A — tienes un Mac
 
 Este repo no incluye un `.xcodeproj` binario (se genera con
 [XcodeGen](https://github.com/yonaskolb/XcodeGen) a partir de `project.yml`,
 así el proyecto no se corrompe al fusionar cambios en git).
-
-En tu Mac:
 
 ```bash
 brew install xcodegen
@@ -154,6 +154,33 @@ En Xcode:
 
 Con una cuenta gratuita de Apple Developer la app hay que reinstalarla cada
 7 días (límite de Apple). Con cuenta de pago (99$/año) dura 1 año.
+
+### Opción B — no tienes Mac (compila en la nube, instala desde Windows)
+
+El repo incluye `.github/workflows/build-ipa.yml`: cada vez que se sube
+código a una rama `claude/**`, GitHub compila automáticamente la app en un
+Mac virtual gratuito y deja lista una `.ipa` **sin firmar** para descargar.
+Firmarla e instalarla en tu iPhone se hace desde Windows con
+[Sideloadly](https://sideloadly.io) y tu Apple ID normal (gratis, sin cuenta
+de desarrollador de pago).
+
+1. Ve a **github.com/Mario-art-dev/Jarvis → pestaña Actions → "Build unsigned IPA"**, entra en la ejecución más reciente (✅ verde) y descarga el artefacto **`Jarvis-unsigned-ipa`** (es un .zip; dentro está `Jarvis.ipa`).
+2. Instala [Sideloadly](https://sideloadly.io/#get) en tu PC de Windows, y [iTunes/Apple Devices](https://apps.microsoft.com/detail/9np83lwlpz9k) si te lo pide (para que Windows reconozca el iPhone por USB).
+3. Conecta el iPhone al PC por cable y desbloquéalo (acepta "Confiar en este ordenador" si te lo pregunta).
+4. Abre Sideloadly, arrastra `Jarvis.ipa` a la ventana.
+5. En el campo Apple ID, pon tu correo de Apple ID normal (el mismo con el que usas iCloud/App Store). Sideloadly te pedirá la contraseña la primera vez (no la guarda en texto plano, la usa solo para firmar).
+6. Dale a **Start**. Tardará un par de minutos firmando e instalando.
+7. En el iPhone: **Ajustes → General → VPN y gestión de dispositivos** → toca tu Apple ID → **Confiar**.
+8. Abre Jarvis desde la pantalla de inicio.
+
+**Aviso importante:** con Apple ID gratuito, la app deja de abrir a los **7
+días** (la firma caduca) — tendrás que repetir los pasos 3-7 con Sideloadly
+(no hace falta recompilar si el código no ha cambiado, reutiliza el mismo
+`Jarvis.ipa`). Es la única pega real de no tener Mac ni pagar los 99$/año de
+Apple Developer.
+
+Cada vez que yo cambie el código de la app, se genera una `.ipa` nueva
+automáticamente — vuelve a la pestaña Actions y descarga la más reciente.
 
 ## 4. Primer arranque
 
