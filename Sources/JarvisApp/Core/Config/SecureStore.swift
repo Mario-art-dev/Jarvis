@@ -5,9 +5,10 @@ import Security
 /// UserDefaults or in source control — this is the only place they're stored.
 enum SecureStore {
     enum Key: String {
-        case anthropicAPIKey = "com.mariomontesinos.jarvis.anthropicKey"
         case elevenLabsAPIKey = "com.mariomontesinos.jarvis.elevenLabsKey"
         case elevenLabsVoiceID = "com.mariomontesinos.jarvis.elevenLabsVoiceID"
+        case serverURL = "com.mariomontesinos.jarvis.serverURL"
+        case serverToken = "com.mariomontesinos.jarvis.serverToken"
     }
 
     static func set(_ value: String, for key: Key) {

@@ -1,9 +1,10 @@
 # Jarvis — asistente de voz personal para iPhone
 
 App iOS (SwiftUI) con interfaz HUD, reconocimiento de voz, un "cerebro"
-basado en Claude (Anthropic) con tool-calling, y respuestas habladas con tu
-voz clonada en ElevenLabs. Puede abrir apps, buscar en internet, y leer/crear
-eventos, recordatorios y contactos con tu permiso.
+que corre **Claude Code autenticado con tu suscripción de Claude** (no una
+API key de pago por uso), y respuestas habladas con una voz de ElevenLabs.
+Puede abrir apps, buscar en internet, y leer/crear eventos, recordatorios y
+contactos con tu permiso.
 
 ## Qué es realmente posible en iOS (léelo antes de nada)
 
@@ -13,8 +14,8 @@ ninguna app**, por diseño (sandboxing). Esta app te da el máximo real dentro
 de esas reglas:
 
 **Sí incluido:**
-- Escuchar y transcribir tu voz, y responder con audio generado por ElevenLabs con tu voz clonada.
-- Decidir qué hacer usando Claude como cerebro (tool-calling / function calling).
+- Escuchar y transcribir tu voz, y responder con audio generado por ElevenLabs.
+- Decidir qué hacer usando Claude Code como cerebro (tool-calling / function calling), corriendo en un servidor tuyo con tu suscripción.
 - Abrir cualquier app que tenga un URL scheme público (Mapas, Mail, Mensajes, Teléfono, FaceTime, Cámara, Calendario, Recordatorios, Ajustes, WhatsApp, Spotify, Instagram...).
 - Abrir búsquedas en Safari.
 - Leer y crear eventos de Calendario y Recordatorios (con tu permiso, vía EventKit).
@@ -28,24 +29,41 @@ de esas reglas:
 
 ## Arquitectura
 
+Dos partes que hablan por WebSocket:
+
 ```
-Sources/JarvisApp/
+                  ws:// (misma red / Tailscale)
+ [ iPhone: app Jarvis ] <────────────────────> [ server/: Node + Claude Code ]
+   - HUD, mic, ElevenLabs                         - autenticado con TU suscripción
+   - ejecuta las tools (Fotos,                     - decide qué tool llamar
+     Calendario, abrir apps...)                    - nunca ejecuta nada él mismo
+```
+
+El servidor **nunca** ejecuta las acciones directamente — solo decide qué
+hacer. Cada "tool" (buscar en la web, abrir una app, leer el calendario...)
+se ejecuta siempre en el iPhone, con los permisos normales de iOS, y el
+resultado vuelve al servidor para que Claude siga la conversación. Así
+aprovechas tu suscripción de Claude Code en vez de pagar la API por token,
+a cambio de tener que dejar un ordenador encendido con el servidor corriendo.
+
+```
+Sources/JarvisApp/                    (la app del iPhone)
   JarvisApp.swift              # punto de entrada
   Views/
     HUDView.swift               # interfaz circular tipo la de tu imagen
     ConversationView.swift      # pantalla principal (mic, transcript)
-    SettingsView.swift          # introducir claves API
+    SettingsView.swift          # servidor + claves de ElevenLabs
   Core/
     Config/
       SecureStore.swift         # Keychain (nunca guardamos claves en texto plano)
       AppConfig.swift
     Voice/
       SpeechRecognizer.swift    # voz -> texto (Speech framework)
-      ElevenLabsClient.swift    # texto -> audio con tu voz clonada
+      ElevenLabsClient.swift    # texto -> audio
       AudioPlayer.swift
     Brain/
-      ClaudeClient.swift        # llamada a la API de Anthropic con tool-use
-      ConversationEngine.swift  # orquesta: escuchar -> pensar -> actuar -> hablar
+      JarvisServerClient.swift  # WebSocket hacia server/
+      ConversationEngine.swift  # orquesta: escuchar -> preguntar al server -> hablar
     Tools/
       ToolProtocol.swift        # contrato + registro de herramientas
       WebSearchTool.swift
@@ -54,27 +72,64 @@ Sources/JarvisApp/
       CalendarTool.swift
       RemindersTool.swift
       ContactsTool.swift
+
+server/                               (el "cerebro", corre en tu Mac/PC)
+  src/
+    index.ts                    # servidor WebSocket + bucle de Claude Code
+    jarvisTools.ts               # mismas tools que el iPhone, pero como proxy remoto
 ```
 
-Cada "tool" es una capacidad concreta con permisos explícitos de iOS. Claude
-recibe la lista de herramientas disponibles en cada turno y decide cuál
-llamar según lo que pidas por voz — así es como se añade "acceso" real sin
-dar un permiso indiscriminado de golpe.
+Cada tool está definida **dos veces** (Swift en el iPhone, TypeScript en el
+servidor) porque son plataformas distintas: la definición del servidor solo
+describe el nombre/parámetros para que Claude sepa cuándo llamarla; quien
+la ejecuta de verdad es siempre el iPhone.
 
-## 1. Crear tu voz clonada en ElevenLabs
+## 1. Crear tu voz en ElevenLabs
 
 1. Crea cuenta en https://elevenlabs.io (tiene plan gratuito limitado).
-2. Ve a **Voices → Add Voice → Instant Voice Clone**.
-3. Sube 1-3 minutos de audio tuyo hablando claro, sin ruido de fondo.
-4. Dale nombre (p.ej. "Mario") y guarda.
-5. Entra en esa voz y copia su **Voice ID** (aparece en la URL o en "..." → Copy Voice ID).
-6. Ve a tu perfil → **API Keys** y genera una API key.
+2. Elige una voz: o clonas la tuya (**Voices → Add Voice → Instant Voice Clone**, subes 1-3 min de audio), o coges una ya hecha de la **Voice Library** (filtrando por género/edad) y le das a "Add to my voices".
+3. Entra en esa voz guardada y copia su **Voice ID**.
+4. Ve a tu perfil → **API Keys** → **Create API Key**, marca al menos permiso de "Text to Speech", y cópiala — solo se muestra una vez.
 
-## 2. Crear tu API key de Anthropic (Claude)
+## 2. Preparar el servidor (usa tu suscripción de Claude, no una API key de pago)
 
-1. Crea cuenta en https://console.anthropic.com
-2. Añade método de pago (la API es de pago por uso, no el plan de claude.ai).
-3. Ve a **Settings → API Keys → Create Key** y cópiala (empieza por `sk-ant-`).
+Necesitas un ordenador que puedas dejar encendido y conectado a internet
+mientras uses Jarvis (tu Mac, un Mac mini, un Raspberry Pi con Node, o una
+VPS barata). No hace falta que sea el mismo Mac donde compilas la app iOS.
+
+```bash
+# 1. Instala Node.js 22+ si no lo tienes (https://nodejs.org)
+
+# 2. Instala el CLI de Claude Code globalmente
+npm install -g @anthropic-ai/claude-code
+
+# 3. Inicia sesión con tu cuenta de Claude (Pro/Max) — NO con una API key
+claude login
+# Elige la opción de iniciar sesión con tu cuenta claude.ai / suscripción.
+
+# 4. Prepara el servidor de Jarvis
+cd Jarvis/server
+npm install
+cp .env.example .env
+# Edita .env y pon un token secreto largo en JARVIS_SERVER_TOKEN
+# (genera uno con: openssl rand -hex 32)
+
+# 5. Arráncalo
+npm start
+```
+
+Verás `Jarvis server escuchando en :8787`. Mientras ese proceso esté vivo y
+tengas sesión iniciada con `claude login`, el servidor usa tu suscripción
+normal de Claude — no se factura por API aparte.
+
+**Averigua la IP de ese ordenador** en tu red local (macOS: Ajustes →
+Wi-Fi → Detalles → IP; o `ipconfig getifaddr en0` en Terminal). La usarás en
+la app como `ws://TU_IP:8787`.
+
+Si quieres usar Jarvis fuera de casa (no en la misma red), monta algo como
+[Tailscale](https://tailscale.com) entre el móvil y el ordenador — así
+`ws://` sigue funcionando por la red privada sin exponer el servidor a
+internet abierto.
 
 ## 3. Generar el proyecto de Xcode
 
@@ -102,22 +157,38 @@ Con una cuenta gratuita de Apple Developer la app hay que reinstalarla cada
 
 ## 4. Primer arranque
 
-1. Abre la app en el iPhone. Como no hay claves guardadas, se abrirá **Ajustes**.
-2. Pega tu API key de Anthropic, tu API key de ElevenLabs y el Voice ID. Guardar.
-3. Pulsa el micrófono, di algo como *"Búscame los mejores restaurantes de Madrid"* o *"Qué tengo hoy en el calendario"*.
-4. Jarvis te responderá en voz alta con tu voz clonada.
+1. Con el servidor (`npm start`) corriendo, abre la app en el iPhone. Como no hay nada guardado, se abrirá **Ajustes**.
+2. Pega:
+   - **Server URL**: `ws://TU_IP:8787`
+   - **Server Token**: el mismo valor que pusiste en `server/.env`
+   - **API key de ElevenLabs** y **Voice ID**
+3. Guardar.
+4. Pulsa el micrófono, di algo como *"Búscame los mejores restaurantes de Madrid"* o *"Qué tengo hoy en el calendario"*.
+5. Jarvis te responderá en voz alta.
 
-## Seguridad de las claves
+La primera vez el iPhone te pedirá permiso de **red local** — acéptalo, es
+para poder hablar con tu servidor.
 
-- Las claves se guardan en el **Keychain de iOS**, cifradas, nunca en
-  UserDefaults ni en el código fuente ni en este repositorio.
-- No subas nunca tus claves a git. Si algún día las pegas por error en un
-  commit, revócalas inmediatamente desde el dashboard de Anthropic/ElevenLabs
-  y genera unas nuevas.
+## Seguridad
+
+- Las claves de ElevenLabs y el token del servidor se guardan en el
+  **Keychain de iOS**, cifradas, nunca en UserDefaults ni en el código.
+- El servidor solo acepta conexiones que manden el `Authorization: Bearer
+  <JARVIS_SERVER_TOKEN>` correcto — no lo compartas ni lo subas a git
+  (`server/.env` ya está en `.gitignore`).
+- El servidor tiene **desactivadas** las herramientas normales de Claude
+  Code (Bash, editar/leer archivos, etc.) — solo puede llamar a las tools
+  de Jarvis, que a su vez solo hacen lo que ves en `Core/Tools/`. No puede
+  tocar archivos de tu ordenador ni ejecutar comandos.
+- Si alguna vez compartes tu token o tus claves por error, revócalas /
+  cámbialas de inmediato.
 
 ## Ampliar Jarvis
 
-Para añadir una nueva capacidad, crea un `struct` que implemente
-`JarvisTool` (ver `Core/Tools/ToolProtocol.swift`) y regístralo en
-`ToolRegistry.init()`. Claude lo verá automáticamente como una opción más
-la próxima vez que le pidas algo relacionado.
+Para añadir una nueva capacidad hacen falta dos piezas, porque cada lado
+ejecuta en una plataforma distinta:
+1. Un `struct` en `Core/Tools/` que implemente `JarvisTool` (Swift, ejecuta en el iPhone), registrado en `ToolRegistry.init()`.
+2. La misma tool descrita en `server/src/jarvisTools.ts` con `tool(...)`, con el mismo `name` y los mismos parámetros, y añadida a `allowedTools` en `server/src/index.ts`.
+
+Claude la verá automáticamente como una opción más la próxima vez que le
+pidas algo relacionado.

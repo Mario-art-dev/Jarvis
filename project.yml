@@ -32,6 +32,9 @@ targets:
         NSRemindersUsageDescription: "Jarvis puede leer y crear recordatorios."
         NSContactsUsageDescription: "Jarvis puede buscar contactos para ayudarte a llamar o escribir."
         NSCameraUsageDescription: "Jarvis puede abrir la cámara cuando se lo pidas."
+        NSLocalNetworkUsageDescription: "Jarvis se conecta a tu servidor Claude Code en la red local para pensar y responder."
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
         LSApplicationQueriesSchemes:
           - maps
           - tel
