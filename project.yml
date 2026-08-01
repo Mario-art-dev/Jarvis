@@ -1,0 +1,53 @@
+name: Jarvis
+options:
+  bundleIdPrefix: com.mariomontesinos
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: 5.0
+    DEVELOPMENT_TEAM: ""   # rellena tu Team ID de Apple Developer aquí
+
+targets:
+  Jarvis:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/JarvisApp
+    resources:
+      - path: Resources/Assets.xcassets
+        optional: true
+    info:
+      path: Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Jarvis
+        UILaunchScreen: {}
+        NSMicrophoneUsageDescription: "Jarvis necesita el micrófono para escuchar tus órdenes de voz."
+        NSSpeechRecognitionUsageDescription: "Jarvis transcribe tu voz para entender tus peticiones."
+        NSPhotoLibraryUsageDescription: "Jarvis puede buscar y mostrar fotos de tu galería cuando se lo pidas."
+        NSPhotoLibraryAddUsageDescription: "Jarvis puede guardar imágenes en tu galería cuando se lo pidas."
+        NSCalendarsUsageDescription: "Jarvis puede leer y crear eventos en tu calendario."
+        NSRemindersUsageDescription: "Jarvis puede leer y crear recordatorios."
+        NSContactsUsageDescription: "Jarvis puede buscar contactos para ayudarte a llamar o escribir."
+        NSCameraUsageDescription: "Jarvis puede abrir la cámara cuando se lo pidas."
+        LSApplicationQueriesSchemes:
+          - maps
+          - tel
+          - facetime
+          - mailto
+          - sms
+          - whatsapp
+          - spotify
+          - instagram
+        UIBackgroundModes:
+          - audio
+    entitlements:
+      path: Resources/Jarvis.entitlements
+      properties:
+        com.apple.security.app-sandbox: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.mariomontesinos.jarvis
+        INFOPLIST_KEY_UILaunchScreen_Generation: true
