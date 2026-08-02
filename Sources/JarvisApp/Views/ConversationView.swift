@@ -43,6 +43,15 @@ struct ConversationView: View {
                 showSettings = true
             }
         }
+        .onOpenURL { url in
+            // jarvisapp://listen — triggered by the Siri Shortcut / Back Tap
+            // so saying "Oye Siri, despierta Jarvis" (or a double Back Tap)
+            // opens the app and starts listening in one step.
+            guard url.host == "listen" else { return }
+            if config.isConfigured && !speech.isListening && engine.state == .idle {
+                startListening()
+            }
+        }
         .alert("Error", isPresented: .constant(engine.lastError != nil)) {
             Button("OK") { engine.lastError = nil }
         } message: {
@@ -95,14 +104,18 @@ struct ConversationView: View {
                 await engine.handleUserUtterance(text)
             }
         } else {
-            speech.requestAuthorization { granted in
-                guard granted else {
-                    engine.lastError = "Necesito permiso de micrófono y reconocimiento de voz."
-                    return
-                }
-                engine.state = .listening
-                speech.startListening()
+            startListening()
+        }
+    }
+
+    private func startListening() {
+        speech.requestAuthorization { granted in
+            guard granted else {
+                engine.lastError = "Necesito permiso de micrófono y reconocimiento de voz."
+                return
             }
+            engine.state = .listening
+            speech.startListening()
         }
     }
 }

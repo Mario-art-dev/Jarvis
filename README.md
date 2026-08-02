@@ -196,6 +196,29 @@ automáticamente — vuelve a la pestaña Actions y descarga la más reciente.
 La primera vez el iPhone te pedirá permiso de **red local** — acéptalo, es
 para poder hablar con tu servidor.
 
+## 5. Activarlo con la voz o con un gesto ("despierta Jarvis")
+
+iOS no deja que ninguna app escuche el micrófono en segundo plano (ni con
+jailbreak sensato), así que no existe un "Hey Jarvis" puro. Pero sí hay dos
+disparadores nativos de Apple que abren la app y la ponen a escuchar en un
+solo paso, usando el esquema `jarvisapp://listen` que ya lleva incorporado:
+
+**A) Con la voz, a través de Siri:**
+1. Abre la app **Atajos** (Shortcuts) del iPhone.
+2. Pestaña **Automatización** → **+** → **Crear automatización personal**.
+3. Elige el disparador que prefieras (por ejemplo **"Aplicación"** no vale para invocar por voz; usa mejor el propio atajo con frase de Siri, ver paso 4).
+4. Mejor: pestaña **Mis atajos** → **+** para crear un atajo nuevo → busca la acción **"Abrir URLs"** → pon `jarvisapp://listen` → nombra el atajo, por ejemplo "Despertar Jarvis".
+5. Toca los "···" del atajo → **Añadir a Siri** → graba la frase, por ejemplo **"Despierta Jarvis"**.
+6. Listo: di **"Oye Siri, despierta Jarvis"** y se abrirá la app ya escuchando.
+
+**B) Con un gesto físico (el equivalente real a "aplaudir dos veces"):**
+iOS no detecta aplausos, pero sí un toque doble en la parte trasera del
+teléfono (Back Tap), que es más fiable y no depende del ruido ambiente:
+1. **Ajustes → Accesibilidad → Tocar → Tocar parte trasera**.
+2. Elige **"Doble toque"** (o "Triple toque" si prefieres evitar activaciones sin querer).
+3. Baja hasta **Atajos** y selecciona el mismo atajo **"Despertar Jarvis"** que creaste arriba.
+4. Ahora, dando dos golpecitos en la parte de atrás del iPhone, se abre Jarvis escuchando — sin pasar por Siri.
+
 ## Seguridad
 
 - Las claves de ElevenLabs y el token del servidor se guardan en el

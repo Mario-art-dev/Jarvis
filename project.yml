@@ -46,6 +46,10 @@ targets:
           - instagram
         UIBackgroundModes:
           - audio
+        CFBundleURLTypes:
+          - CFBundleURLName: com.mariomontesinos.jarvis
+            CFBundleURLSchemes:
+              - jarvisapp
     entitlements:
       path: Resources/Jarvis.entitlements
       properties:
