@@ -25,6 +25,15 @@ final class ConversationEngine: ObservableObject {
         self.config = config
     }
 
+    /// Spoken as soon as the app opens — a fixed line, not routed through
+    /// the server, so it works instantly even before the server/login is
+    /// ready and doesn't cost a Claude turn just to say hello.
+    func greet() async {
+        let greeting = "Buenas, señor Gimeno. ¿En qué puedo ayudarle?"
+        transcript.append(TranscriptEntry(speaker: "Jarvis", text: greeting))
+        await speak(greeting)
+    }
+
     func handleUserUtterance(_ text: String) async {
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         transcript.append(TranscriptEntry(speaker: "Tú", text: text))

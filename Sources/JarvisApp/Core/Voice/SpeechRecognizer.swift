@@ -8,9 +8,21 @@ import Combine
 /// (e.g. Picovoice Porcupine) layered on top of this — plain Speech framework
 /// recognition cannot run indefinitely in the background on iOS.
 final class SpeechRecognizer: NSObject, ObservableObject {
-    @Published var transcript: String = ""
+    @Published var transcript: String = "" {
+        didSet { lastTranscriptChange = Date() }
+    }
     @Published var isListening: Bool = false
     @Published var errorMessage: String?
+
+    /// When the transcript last changed — used to detect "user stopped
+    /// talking" for continuous listening (no mic button needed) instead of
+    /// waiting for SFSpeechRecognizer's own end-of-utterance signal, which
+    /// is unreliable for open-ended conversation.
+    private(set) var lastTranscriptChange = Date()
+
+    func secondsSinceLastTranscriptChange() -> TimeInterval {
+        Date().timeIntervalSince(lastTranscriptChange)
+    }
 
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "es-ES"))
     private var request: SFSpeechAudioBufferRecognitionRequest?

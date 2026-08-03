@@ -28,7 +28,7 @@ de esas reglas:
 
 **No incluido, y por qué:**
 - Leer WhatsApp/Instagram/apps bancarias por dentro, o "controlar" otra app como si fueras tú: iOS no expone eso a ninguna app de terceros, jailbreak included solo con muchísimo riesgo de seguridad — no lo vamos a hacer.
-- "Hey Jarvis" en segundo plano de forma indefinida: el reconocimiento de voz de Apple no puede correr sin fin en background. La app usa manos-libres tipo "pulsa para hablar". Si quieres wake-word real, se añade con un motor de terceros (p.ej. Picovoice Porcupine) — es un paso aparte.
+- "Hey Jarvis" en segundo plano de forma indefinida (con el móvil bloqueado o la app cerrada): el reconocimiento de voz de Apple no puede correr sin fin en background. Si quieres eso, se añade con un motor de terceros (p.ej. Picovoice Porcupine) — es un paso aparte. Mientras la app está **abierta y en primer plano**, sí escucha todo el rato sin tener que pulsar nada (ver más abajo).
 - Leer resultados de una búsqueda web: Jarvis puede *abrir* Safari con la búsqueda ya hecha, pero no puede leer lo que hay en la pantalla de otra app.
 
 ## Arquitectura
@@ -222,6 +222,30 @@ teléfono (Back Tap), que es más fiable y no depende del ruido ambiente:
 2. Elige **"Doble toque"** (o "Triple toque" si prefieres evitar activaciones sin querer).
 3. Baja hasta **Atajos** y selecciona el mismo atajo **"Despertar Jarvis"** que creaste arriba.
 4. Ahora, dando dos golpecitos en la parte de atrás del iPhone, se abre Jarvis escuchando — sin pasar por Siri.
+
+## Escucha continua (sin pulsar el micrófono)
+
+Con la app **abierta y en primer plano**, Jarvis escucha todo el rato sin
+que tengas que tocar nada:
+- Al abrir la app te saluda en voz alta ("Buenas, señor Gimeno...") y
+  empieza a escuchar automáticamente.
+- Cuando dejas de hablar (~1,3 segundos de silencio), envía lo que ha oído,
+  te responde, y en cuanto termina de hablar **vuelve a escuchar solo**,
+  sin que pulses nada — así puedes seguir la conversación de corrido.
+- Si sales de la app o bloqueas el móvil, deja de escuchar automáticamente
+  (no puede seguir en segundo plano, como ya se explicó arriba), y retoma
+  al volver a abrirla.
+- El botón del micrófono sigue ahí como control manual: pulsarlo mientras
+  escucha fuerza el envío inmediato sin esperar el silencio; pulsarlo
+  estando parado, lo reactiva a mano.
+
+**Aviso importante:** esto significa que el micrófono capta *todo* lo que
+se diga cerca del móvil mientras la app esté abierta en pantalla, no solo
+lo que te diriges a Jarvis — incluida conversación de fondo que no era para
+él. Cada vez que detecta un silencio después de "algo", se lo manda a
+Claude (consume uso de tu suscripción) e intentará responder. Si prefieres
+volver al modo "pulsa para hablar" de toda la vida, dímelo y lo dejo como
+opción activable en Ajustes en vez de comportamiento por defecto.
 
 ## Seguridad
 

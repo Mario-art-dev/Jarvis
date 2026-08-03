@@ -5,6 +5,16 @@ struct ConversationView: View {
     @StateObject private var speech = SpeechRecognizer()
     @StateObject private var engine: ConversationEngine
     @State private var showSettings = false
+    @State private var hasGreeted = false
+
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// How long the transcript must sit unchanged before we treat it as
+    /// "the user finished talking" and send it off — continuous listening
+    /// has no button press to mark the end of an utterance, so silence is
+    /// the only signal available.
+    private let silenceThreshold: TimeInterval = 1.3
+    private let silenceCheckTimer = Timer.publish(every: 0.3, on: .main, in: .common).autoconnect()
 
     init() {
         let sharedConfig = AppConfig()
@@ -39,8 +49,14 @@ struct ConversationView: View {
             SettingsView(config: config)
         }
         .onAppear {
-            if !config.isConfigured {
-                showSettings = true
+            guard !hasGreeted, config.isConfigured else {
+                if !config.isConfigured { showSettings = true }
+                return
+            }
+            hasGreeted = true
+            Task {
+                await engine.greet()
+                beginListeningIfIdle()
             }
         }
         .onOpenURL { url in
@@ -48,9 +64,26 @@ struct ConversationView: View {
             // so saying "Oye Siri, despierta Jarvis" (or a double Back Tap)
             // opens the app and starts listening in one step.
             guard url.host == "listen" else { return }
-            if config.isConfigured && !speech.isListening && engine.state == .idle {
-                startListening()
+            beginListeningIfIdle()
+        }
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .active {
+                beginListeningIfIdle()
+            } else {
+                speech.stopListening()
             }
+        }
+        .onChange(of: engine.state) { newState in
+            // Loop back to listening automatically once Jarvis finishes
+            // speaking — that's the "no mic button needed" behavior.
+            if newState == .idle {
+                beginListeningIfIdle()
+            }
+        }
+        .onReceive(silenceCheckTimer) { _ in
+            guard speech.isListening, !speech.transcript.isEmpty else { return }
+            guard speech.secondsSinceLastTranscriptChange() >= silenceThreshold else { return }
+            finishListeningAndSubmit()
         }
         .alert("Error", isPresented: .constant(engine.lastError != nil)) {
             Button("OK") { engine.lastError = nil }
@@ -83,7 +116,11 @@ struct ConversationView: View {
 
     private var micButton: some View {
         Button {
-            toggleListening()
+            if speech.isListening {
+                finishListeningAndSubmit()
+            } else {
+                beginListeningIfIdle(force: true)
+            }
         } label: {
             Image(systemName: speech.isListening ? "mic.fill" : "mic")
                 .font(.system(size: 30))
@@ -96,19 +133,14 @@ struct ConversationView: View {
         .disabled(!config.isConfigured || engine.state == .thinking || engine.state == .speaking)
     }
 
-    private func toggleListening() {
-        if speech.isListening {
-            speech.stopListening()
-            let text = speech.transcript
-            Task {
-                await engine.handleUserUtterance(text)
-            }
-        } else {
-            startListening()
-        }
-    }
+    /// Starts the mic automatically whenever Jarvis is free (idle, app in
+    /// foreground, configured) — this is what makes listening "always on"
+    /// while the app is open, with no tap required.
+    private func beginListeningIfIdle(force: Bool = false) {
+        guard config.isConfigured else { return }
+        guard !speech.isListening else { return }
+        guard force || (engine.state == .idle && scenePhase == .active) else { return }
 
-    private func startListening() {
         speech.requestAuthorization { granted in
             guard granted else {
                 engine.lastError = "Necesito permiso de micrófono y reconocimiento de voz."
@@ -116,6 +148,14 @@ struct ConversationView: View {
             }
             engine.state = .listening
             speech.startListening()
+        }
+    }
+
+    private func finishListeningAndSubmit() {
+        speech.stopListening()
+        let text = speech.transcript
+        Task {
+            await engine.handleUserUtterance(text)
         }
     }
 }
