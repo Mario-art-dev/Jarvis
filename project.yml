@@ -34,6 +34,13 @@ targets:
         NSLocalNetworkUsageDescription: "Jarvis se conecta a tu servidor Claude Code en la red local para pensar y responder."
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+          # Tailscale IPs (100.x.x.x) aren't in the private ranges
+          # NSAllowsLocalNetworking covers, so ATS would otherwise block a
+          # plain ws:// connection to them. Safe to allow here because
+          # Tailscale's WireGuard tunnel already encrypts everything
+          # end-to-end — the plaintext ws:// only ever exists inside that
+          # tunnel, never on the open internet.
+          NSAllowsArbitraryLoads: true
         LSApplicationQueriesSchemes:
           - App-prefs
           - maps

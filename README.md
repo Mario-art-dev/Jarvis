@@ -130,10 +130,35 @@ normal de Claude — no se factura por API aparte.
 Wi-Fi → Detalles → IP; o `ipconfig getifaddr en0` en Terminal). La usarás en
 la app como `ws://TU_IP:8787`.
 
-Si quieres usar Jarvis fuera de casa (no en la misma red), monta algo como
-[Tailscale](https://tailscale.com) entre el móvil y el ordenador — así
-`ws://` sigue funcionando por la red privada sin exponer el servidor a
-internet abierto.
+### Que el Mac no se duerma
+
+Mientras el Mac esté dormido (aunque siga enchufado), el servidor no
+funciona — el sistema entero se pausa, no solo la pantalla. Para que no se
+duerma solo:
+
+1.  → **Preferencias del Sistema** → **Ahorro de energía** (Energy Saver).
+2. Marca **"Evitar que el equipo se duerma automáticamente cuando la pantalla esté apagada"**.
+3. Puedes dejar que la pantalla se apague igualmente (ahorra algo de luz), solo importa que el equipo en sí no entre en reposo.
+
+### Usar Jarvis fuera de casa, desde cualquier sitio
+
+Por defecto, el móvil solo puede hablar con el servidor si está en la
+**misma red Wi-Fi** que el Mac (la IP `192.168.x.x` no se puede alcanzar
+desde fuera de casa). Para usarlo con datos móviles o desde cualquier otra
+red, monta [Tailscale](https://tailscale.com) (gratis para uso personal):
+crea una red privada cifrada entre tu iPhone y el Mac, sin tocar nada del
+router ni exponer el servidor a internet abierto.
+
+1. En el Mac: descarga Tailscale desde **tailscale.com/download** (o desde la Mac App Store), instálalo y ábrelo.
+2. Inicia sesión — puedes usar tu cuenta de Google, Microsoft, GitHub o un email normal. Es gratis.
+3. En el iPhone: instala la app **Tailscale** desde la App Store, ábrela e inicia sesión con **la misma cuenta**.
+4. En el Mac, haz clic en el icono de Tailscale (arriba a la derecha, en la barra de menús) → verás algo como **"This device: 100.x.x.x"** — esa es la IP de Tailscale de tu Mac. Apúntala (o consíguela desde Terminal con `tailscale ip -4`).
+5. En el iPhone, en Ajustes de Jarvis, cambia el **Server URL** por esa IP en vez de la local: `ws://100.x.x.x:8787`.
+
+Con esto, mientras el Mac esté encendido (no dormido) y con Tailscale
+abierto, y el iPhone tenga Tailscale activo (funciona solo en segundo
+plano, no hace falta abrirlo cada vez), Jarvis funcionará desde cualquier
+sitio con internet, no solo en casa.
 
 ## 3. Conseguir la app en tu iPhone
 
