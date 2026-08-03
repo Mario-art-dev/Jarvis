@@ -24,7 +24,7 @@ de esas reglas:
 - Consultar el tiempo real (temperatura, viento, humedad) de cualquier lugar del mundo, sin API key, corriendo en el servidor.
 - Buscar y leer la web de verdad (no solo abrir una búsqueda) usando WebSearch/WebFetch, para preguntas que necesiten información actual de internet.
 - Reproducir una playlist tuya de la app Música por nombre, con reproducción aleatoria opcional (vía MediaPlayer, solo playlists que ya tengas guardadas en tu biblioteca).
-- Decirte cuántos correos sin leer tienes en Gmail y sus remitentes/asuntos, vía IMAP con una contraseña de aplicación de Google (sin OAuth, sin proyecto de Google Cloud). Configúralo en `server/.env` con `GMAIL_ADDRESS`/`GMAIL_APP_PASSWORD` — genera la contraseña en https://myaccount.google.com/apppasswords (requiere verificación en dos pasos activada). Solo lectura de asunto/remitente, nunca modifica nada ni lee el cuerpo completo del correo.
+- Decirte cuántos correos sin leer tienes en Gmail y sus remitentes/asuntos, vía IMAP con una contraseña de aplicación de Google (sin OAuth, sin proyecto de Google Cloud). Soporta varias cuentas con etiqueta ("personal", "trabajo") — configúralo en `server/.env` con `GMAIL_1_LABEL`/`GMAIL_1_ADDRESS`/`GMAIL_1_APP_PASSWORD` (y `GMAIL_2_...` para una segunda cuenta, etc.) — genera la contraseña en https://myaccount.google.com/apppasswords (requiere verificación en dos pasos activada). Solo lectura de asunto/remitente, nunca modifica nada ni lee el cuerpo completo del correo.
 
 **No incluido, y por qué:**
 - Leer WhatsApp/Instagram/apps bancarias por dentro, o "controlar" otra app como si fueras tú: iOS no expone eso a ninguna app de terceros, jailbreak included solo con muchísimo riesgo de seguridad — no lo vamos a hacer.

@@ -112,10 +112,15 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
       ),
       tool(
         "check_gmail",
-        "Consulta cuántos correos sin leer hay en Gmail y sus remitentes/asuntos más recientes. Corre en el servidor, solo lectura, requiere que el usuario haya configurado una contraseña de aplicación de Gmail.",
-        { limit: z.number().int().optional().describe("Máximo de correos a listar, por defecto 5") },
+        "Consulta cuántos correos sin leer hay en Gmail y sus remitentes/asuntos más recientes. Corre en el servidor, solo lectura. Si el usuario tiene varias cuentas configuradas y no especifica cuál, consulta todas.",
+        {
+          account: z.string().optional().describe(
+            "Opcional: qué cuenta consultar si hay varias configuradas (ej. 'personal', 'trabajo', o el email). Si se omite, consulta todas."
+          ),
+          limit: z.number().int().optional().describe("Máximo de correos a listar por cuenta, por defecto 5")
+        },
         async (args) => ({
-          content: [{ type: "text", text: await checkGmail(args.limit) }]
+          content: [{ type: "text", text: await checkGmail(args.account, args.limit) }]
         })
       )
     ]
