@@ -43,7 +43,9 @@ export async function fetchWeather(location: string): Promise<string> {
   const forecastUrl = new URL("https://api.open-meteo.com/v1/forecast");
   forecastUrl.searchParams.set("latitude", String(place.latitude));
   forecastUrl.searchParams.set("longitude", String(place.longitude));
-  forecastUrl.searchParams.set("current", "temperature_2m,wind_speed_10m,relative_humidity_2m,weather_code");
+  forecastUrl.searchParams.set("current", "temperature_2m,wind_speed_10m,relative_humidity_2m,weather_code,precipitation");
+  forecastUrl.searchParams.set("hourly", "precipitation_probability");
+  forecastUrl.searchParams.set("forecast_days", "1");
   forecastUrl.searchParams.set("timezone", "auto");
 
   const forecastRes = await fetch(forecastUrl);
@@ -55,6 +57,15 @@ export async function fetchWeather(location: string): Promise<string> {
   const description = WMO_DESCRIPTIONS[current.weather_code] ?? "condiciones variables";
   const placeLabel = [place.name, place.admin1, place.country].filter(Boolean).join(", ");
 
+  // "current.time" and "hourly.time" both come back as local ISO strings
+  // (timezone=auto) — matching on the hour prefix finds the rain chance
+  // for right now, since Open-Meteo only publishes that per-hour.
+  const hourlyTimes: string[] = forecastData?.hourly?.time ?? [];
+  const hourlyRainChance: number[] = forecastData?.hourly?.precipitation_probability ?? [];
+  const hourIndex = hourlyTimes.findIndex((t) => t.slice(0, 13) === String(current.time).slice(0, 13));
+  const rainChance = hourIndex >= 0 ? hourlyRainChance[hourIndex] : undefined;
+  const rainChanceText = rainChance !== undefined ? `, probabilidad de lluvia del ${rainChance}%` : "";
+
   return `En ${placeLabel} ahora mismo: ${description}, ${current.temperature_2m}°C, ` +
-    `viento de ${current.wind_speed_10m} km/h, humedad del ${current.relative_humidity_2m}%.`;
+    `viento de ${current.wind_speed_10m} km/h, humedad del ${current.relative_humidity_2m}%${rainChanceText}.`;
 }
