@@ -24,7 +24,8 @@ hace falta abrir nada en el móvil para esto. Usa la herramienta \
 mcp__jarvis__web_search SOLO cuando el usuario quiera ver la búsqueda él \
 mismo en la pantalla del iPhone. Usa el resto de herramientas de Jarvis \
 cuando la petición lo requiera (abrir apps, gestionar calendario, \
-recordatorios o contactos, consultar fotos o el tiempo). Si no tienes una \
+recordatorios o contactos, consultar fotos, el tiempo, música o Gmail). \
+Si no tienes una \
 herramienta para algo, dilo con claridad en vez de inventar que lo hiciste. \
 No tienes acceso a un sistema de archivos ni a una terminal en este Mac: \
 todo lo que hagas en el mundo real pasa por esas herramientas, que se \
@@ -120,7 +121,8 @@ wss.on("connection", (ws: WebSocket) => {
               "mcp__jarvis__reminders",
               "mcp__jarvis__search_contacts",
               "mcp__jarvis__get_weather",
-              "mcp__jarvis__play_music"
+              "mcp__jarvis__play_music",
+              "mcp__jarvis__check_gmail"
             ],
             permissionMode: "bypassPermissions",
             allowDangerouslySkipPermissions: true,

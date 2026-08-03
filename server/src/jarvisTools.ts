@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 import { fetchWeather } from "./weather.js";
+import { checkGmail } from "./gmail.js";
 
 /**
  * These tool names/schemas mirror Sources/JarvisApp/Core/Tools/*.swift on the
@@ -107,6 +108,14 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
         { location: z.string().describe("Nombre de la ciudad o lugar, ej. 'Valencia' o 'Madrid, España'") },
         async (args) => ({
           content: [{ type: "text", text: await fetchWeather(args.location) }]
+        })
+      ),
+      tool(
+        "check_gmail",
+        "Consulta cuántos correos sin leer hay en Gmail y sus remitentes/asuntos más recientes. Corre en el servidor, solo lectura, requiere que el usuario haya configurado una contraseña de aplicación de Gmail.",
+        { limit: z.number().int().optional().describe("Máximo de correos a listar, por defecto 5") },
+        async (args) => ({
+          content: [{ type: "text", text: await checkGmail(args.limit) }]
         })
       )
     ]
