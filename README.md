@@ -321,11 +321,20 @@ proyecto — es que esa información y esos controles no están disponibles
 para nadie fuera de la propia app Reloj de Apple.
 
 **Atajo 1 — "Jarvis Crear Alarma"**
+
+Jarvis manda la hora y el nombre juntos en un solo texto, separados por `|`
+(ej. `07:30|Gimnasio`), porque Atajos solo permite pasar un texto por
+llamada. Por eso hace falta separarlos dentro del propio Atajo:
+
 1. Nuevo atajo, nómbralo exactamente: **`Jarvis Crear Alarma`**.
-2. Añade la acción **"Crear alarma"** (busca "alarma" en el buscador de acciones).
-3. En el campo de la hora, usa la variable **"Entrada de atajo"** — Jarvis manda la hora como texto en formato 24h (ej. `07:30`), y Atajos debería interpretarlo solo como una hora.
+2. Añade la acción **"Dividir texto"** (Split Text). Configúrala para dividir **"Entrada de atajo"** usando un separador personalizado: **`|`**.
+3. Añade la acción **"Añadir alarma"** (o "Crear alarma", según tu versión).
+   - En el campo de la **hora**, usa **"Seleccionar variable"** → el resultado de "Dividir texto" → elige el **primer elemento** (índice 1).
+   - En el campo del **nombre/título** de la alarma, haz lo mismo pero eligiendo el **segundo elemento** (índice 2).
 4. Añade una última acción **"Detener y generar"** con el resultado puesto a texto fijo, por ejemplo `Alarma creada`.
 5. Desactiva **"Preguntar antes de ejecutar"** en los ajustes del atajo.
+
+Si al insertar la variable de "Dividir texto" en un campo no te deja elegir directamente "primer/segundo elemento", añade dos acciones **"Obtener elemento de lista"** antes del paso 3 (una para el índice 1, otra para el índice 2) y usa esos resultados en su lugar.
 
 **Atajo 2 — "Jarvis Iniciar Temporizador"**
 1. Nuevo atajo, nómbralo exactamente: **`Jarvis Iniciar Temporizador`**.

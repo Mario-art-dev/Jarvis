@@ -123,6 +123,7 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
         {
           action: z.enum(["create_alarm", "start_timer"]),
           time_hhmm: z.string().optional().describe("Solo para create_alarm: hora en formato 24h HH:mm, ej. '07:30'."),
+          label: z.string().optional().describe("Solo para create_alarm: nombre de la alarma, si el usuario pidió uno."),
           minutes: z.number().int().optional().describe("Solo para start_timer: minutos de cuenta atrás.")
         },
         async (args) => ({

@@ -15,6 +15,7 @@ struct ClockTool: JarvisTool {
         "properties": [
             "action": ["type": "string", "enum": ["create_alarm", "start_timer"]],
             "time_hhmm": ["type": "string", "description": "Solo para create_alarm: hora en formato 24h HH:mm, ej. '07:30'."],
+            "label": ["type": "string", "description": "Solo para create_alarm: nombre de la alarma, si el usuario pidió uno. Evita usar el carácter '|' en el nombre."],
             "minutes": ["type": "integer", "description": "Solo para start_timer: minutos de cuenta atrás."]
         ],
         "required": ["action"]
@@ -30,8 +31,10 @@ struct ClockTool: JarvisTool {
             guard let time = input["time_hhmm"] as? String, !time.isEmpty else {
                 throw ToolError.invalidInput("time_hhmm")
             }
-            _ = try await NotesShortcutBridge.shared.run(shortcutName: "Jarvis Crear Alarma", input: time)
-            return "He creado la alarma a las \(time)."
+            var label = (input["label"] as? String)?.replacingOccurrences(of: "|", with: " ") ?? ""
+            label = label.trimmingCharacters(in: .whitespaces).isEmpty ? "Alarma" : label
+            _ = try await NotesShortcutBridge.shared.run(shortcutName: "Jarvis Crear Alarma", input: "\(time)|\(label)")
+            return "He creado la alarma \"\(label)\" a las \(time)."
 
         case "start_timer":
             guard let minutes = input["minutes"] as? Int, minutes > 0 else {
