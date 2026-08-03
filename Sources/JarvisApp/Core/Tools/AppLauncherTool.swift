@@ -3,20 +3,26 @@ import UIKit
 
 /// Opens other apps via public URL schemes / universal links. This is the
 /// iOS-legal equivalent of "launch app X" — there's no API to list every
-/// installed app or to control what happens inside them once opened.
+/// installed app or open one that doesn't have a known scheme, so this list
+/// is deliberately explicit rather than a generic "open anything."
 struct AppLauncherTool: JarvisTool {
     let name = "open_app"
-    let description = "Abre una app o acción del sistema conocida: maps, mail, messages, phone, facetime, camera, calendar, reminders, settings, whatsapp, spotify, instagram."
+    let description = "Abre una app o acción del sistema conocida por su nombre."
     let inputSchema: [String: Any] = [
         "type": "object",
         "properties": [
             "target": [
                 "type": "string",
-                "enum": ["maps", "mail", "messages", "phone", "facetime", "camera", "calendar", "reminders", "settings", "whatsapp", "spotify", "instagram"]
+                "enum": [
+                    "maps", "mail", "messages", "phone", "facetime", "camera",
+                    "calendar", "reminders", "settings", "whatsapp", "spotify",
+                    "instagram", "tiktok", "youtube", "gmail", "chrome", "teams",
+                    "app_store", "music", "notes", "voice_memos", "files"
+                ]
             ],
             "query_or_recipient": [
                 "type": "string",
-                "description": "Opcional: dirección para maps, destinatario para messages/mail/phone, etc."
+                "description": "Opcional: dirección para maps, destinatario para messages/mail/phone/whatsapp, término de búsqueda para youtube/app_store."
             ]
         ],
         "required": ["target"]
@@ -71,6 +77,26 @@ struct AppLauncherTool: JarvisTool {
             return URL(string: "spotify://")
         case "instagram":
             return URL(string: "instagram://app")
+        case "tiktok":
+            return URL(string: "tiktok://")
+        case "youtube":
+            return extra.isEmpty ? URL(string: "youtube://") : URL(string: "youtube://results?search_query=\(encoded)")
+        case "gmail":
+            return URL(string: "googlegmail://")
+        case "chrome":
+            return URL(string: "googlechrome://")
+        case "teams":
+            return URL(string: "msteams://")
+        case "app_store":
+            return extra.isEmpty ? URL(string: "itms-apps://") : URL(string: "itms-apps://itunes.apple.com/search?term=\(encoded)")
+        case "music":
+            return URL(string: "music://")
+        case "notes":
+            return URL(string: "mobilenotes://")
+        case "voice_memos":
+            return URL(string: "voicememos://")
+        case "files":
+            return URL(string: "shareddocuments://")
         default:
             return nil
         }

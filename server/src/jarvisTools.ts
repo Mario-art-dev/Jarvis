@@ -30,10 +30,12 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
         {
           target: z.enum([
             "maps", "mail", "messages", "phone", "facetime", "camera",
-            "calendar", "reminders", "settings", "whatsapp", "spotify", "instagram"
+            "calendar", "reminders", "settings", "whatsapp", "spotify",
+            "instagram", "tiktok", "youtube", "gmail", "chrome", "teams",
+            "app_store", "music", "notes", "voice_memos", "files"
           ]),
           query_or_recipient: z.string().optional().describe(
-            "Opcional: dirección para maps, destinatario para messages/mail/phone, etc."
+            "Opcional: dirección para maps, destinatario para messages/mail/phone/whatsapp, término de búsqueda para youtube/app_store."
           )
         },
         async (args) => ({

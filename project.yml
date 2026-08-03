@@ -39,9 +39,21 @@ targets:
           - facetime
           - mailto
           - sms
+          - calshow
+          - x-apple-reminder
           - whatsapp
           - spotify
           - instagram
+          - tiktok
+          - youtube
+          - googlegmail
+          - googlechrome
+          - msteams
+          - itms-apps
+          - music
+          - mobilenotes
+          - voicememos
+          - shareddocuments
         UIBackgroundModes:
           - audio
         CFBundleURLTypes:

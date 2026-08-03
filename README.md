@@ -16,7 +16,7 @@ de esas reglas:
 **Sí incluido:**
 - Escuchar y transcribir tu voz, y responder con audio generado por ElevenLabs.
 - Decidir qué hacer usando Claude Code como cerebro (tool-calling / function calling), corriendo en un servidor tuyo con tu suscripción.
-- Abrir cualquier app que tenga un URL scheme público (Mapas, Mail, Mensajes, Teléfono, FaceTime, Cámara, Calendario, Recordatorios, Ajustes, WhatsApp, Spotify, Instagram...).
+- Abrir apps concretas con URL scheme público: Mapas, Mail, Mensajes, Teléfono, FaceTime, Cámara, Calendario, Recordatorios, Ajustes, WhatsApp, Spotify, Instagram, TikTok, YouTube, Gmail, Chrome, Teams, App Store, Música, Notas, Notas de voz, Archivos. No es una lista abierta: cada una está programada a mano y hay un tope técnico de 50 apps declarables en total. Apps sin URL scheme público (Calculadora, Tiempo, Traductor, la app de Claude, la de ChatGPT...) no se pueden abrir así.
 - Abrir búsquedas en Safari.
 - Leer y crear eventos de Calendario y Recordatorios (con tu permiso, vía EventKit).
 - Buscar contactos por nombre (vía Contacts framework).
