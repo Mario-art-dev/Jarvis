@@ -22,7 +22,7 @@ struct AppLauncherTool: JarvisTool {
             ],
             "query_or_recipient": [
                 "type": "string",
-                "description": "Opcional: dirección para maps, destinatario para messages/mail/phone/whatsapp, término de búsqueda para youtube/app_store."
+                "description": "Opcional: dirección para maps, destinatario para messages/mail/phone/whatsapp, término de búsqueda para youtube/app_store (para app_store, busca la app en la App Store para que el usuario solo tenga que tocar Instalar — nunca instala nada automáticamente, eso iOS no lo permite a ninguna app)."
             ]
         ],
         "required": ["target"]
@@ -33,15 +33,18 @@ struct AppLauncherTool: JarvisTool {
             throw ToolError.invalidInput("target")
         }
         let extra = (input["query_or_recipient"] as? String) ?? ""
+        let candidates = urlCandidates(target: target, extra: extra)
 
-        guard let url = urlFor(target: target, extra: extra) else {
+        guard !candidates.isEmpty else {
             throw ToolError.notSupported(target)
         }
 
         let opened = await MainActor.run { () -> Bool in
-            guard UIApplication.shared.canOpenURL(url) else { return false }
-            UIApplication.shared.open(url)
-            return true
+            for url in candidates where UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url)
+                return true
+            }
+            return false
         }
 
         guard opened else {
@@ -50,55 +53,67 @@ struct AppLauncherTool: JarvisTool {
         return "Abriendo \(target)."
     }
 
-    private func urlFor(target: String, extra: String) -> URL? {
+    /// Returns candidate URLs in priority order — the first one iOS reports
+    /// it can actually open wins. Used for "settings", where the ideal
+    /// (opening the general Settings screen) relies on an undocumented
+    /// scheme Apple has restricted for third-party apps on and off over the
+    /// years; if it doesn't work on this iOS version, it falls back to the
+    /// one Apple guarantees (Jarvis's own page inside Settings).
+    private func urlCandidates(target: String, extra: String) -> [URL] {
         let encoded = extra.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         switch target {
         case "maps":
-            return URL(string: "maps://?q=\(encoded)")
+            return [URL(string: "maps://?q=\(encoded)")].compactMap { $0 }
         case "mail":
-            return URL(string: "mailto:\(extra)")
+            return [URL(string: "mailto:\(extra)")].compactMap { $0 }
         case "messages":
-            return URL(string: "sms:\(extra)")
+            return [URL(string: "sms:\(extra)")].compactMap { $0 }
         case "phone":
-            return URL(string: "tel:\(extra)")
+            return [URL(string: "tel:\(extra)")].compactMap { $0 }
         case "facetime":
-            return URL(string: "facetime:\(extra)")
+            return [URL(string: "facetime:\(extra)")].compactMap { $0 }
         case "camera":
-            return URL(string: "camera://")
+            return [URL(string: "camera://")].compactMap { $0 }
         case "calendar":
-            return URL(string: "calshow://")
+            return [URL(string: "calshow://")].compactMap { $0 }
         case "reminders":
-            return URL(string: "x-apple-reminder://")
+            return [URL(string: "x-apple-reminder://")].compactMap { $0 }
         case "settings":
-            return URL(string: UIApplication.openSettingsURLString)
+            return [
+                URL(string: "App-prefs:root=General"),
+                URL(string: UIApplication.openSettingsURLString)
+            ].compactMap { $0 }
         case "whatsapp":
-            return extra.isEmpty ? URL(string: "whatsapp://") : URL(string: "whatsapp://send?phone=\(encoded)")
+            let url = extra.isEmpty ? URL(string: "whatsapp://") : URL(string: "whatsapp://send?phone=\(encoded)")
+            return [url].compactMap { $0 }
         case "spotify":
-            return URL(string: "spotify://")
+            return [URL(string: "spotify://")].compactMap { $0 }
         case "instagram":
-            return URL(string: "instagram://app")
+            return [URL(string: "instagram://app")].compactMap { $0 }
         case "tiktok":
-            return URL(string: "tiktok://")
+            return [URL(string: "tiktok://")].compactMap { $0 }
         case "youtube":
-            return extra.isEmpty ? URL(string: "youtube://") : URL(string: "youtube://results?search_query=\(encoded)")
+            let url = extra.isEmpty ? URL(string: "youtube://") : URL(string: "youtube://results?search_query=\(encoded)")
+            return [url].compactMap { $0 }
         case "gmail":
-            return URL(string: "googlegmail://")
+            return [URL(string: "googlegmail://")].compactMap { $0 }
         case "chrome":
-            return URL(string: "googlechrome://")
+            return [URL(string: "googlechrome://")].compactMap { $0 }
         case "teams":
-            return URL(string: "msteams://")
+            return [URL(string: "msteams://")].compactMap { $0 }
         case "app_store":
-            return extra.isEmpty ? URL(string: "itms-apps://") : URL(string: "itms-apps://itunes.apple.com/search?term=\(encoded)")
+            let url = extra.isEmpty ? URL(string: "itms-apps://") : URL(string: "itms-apps://itunes.apple.com/search?term=\(encoded)")
+            return [url].compactMap { $0 }
         case "music":
-            return URL(string: "music://")
+            return [URL(string: "music://")].compactMap { $0 }
         case "notes":
-            return URL(string: "mobilenotes://")
+            return [URL(string: "mobilenotes://")].compactMap { $0 }
         case "voice_memos":
-            return URL(string: "voicememos://")
+            return [URL(string: "voicememos://")].compactMap { $0 }
         case "files":
-            return URL(string: "shareddocuments://")
+            return [URL(string: "shareddocuments://")].compactMap { $0 }
         default:
-            return nil
+            return []
         }
     }
 }
