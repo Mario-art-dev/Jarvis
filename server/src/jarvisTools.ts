@@ -40,7 +40,7 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
             "clock", "weather", "liftoff_gym", "rider_stunt_bike"
           ]),
           query_or_recipient: z.string().optional().describe(
-            "Opcional: dirección para maps/google_maps, destinatario para messages/mail/phone/whatsapp, término de búsqueda para youtube/app_store."
+            "Opcional: dirección para maps/google_maps, destinatario para messages/mail/phone/whatsapp, término de búsqueda para youtube/app_store/chrome."
           )
         },
         async (args) => ({

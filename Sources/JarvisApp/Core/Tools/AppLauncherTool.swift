@@ -32,7 +32,7 @@ struct AppLauncherTool: JarvisTool {
             ],
             "query_or_recipient": [
                 "type": "string",
-                "description": "Opcional: dirección para maps/google_maps, destinatario para messages/mail/phone/whatsapp, término de búsqueda para youtube/app_store (para app_store, busca la app en la App Store para que el usuario solo tenga que tocar Instalar — nunca instala nada automáticamente, eso iOS no lo permite a ninguna app)."
+                "description": "Opcional: dirección para maps/google_maps, destinatario para messages/mail/phone/whatsapp, término de búsqueda para youtube/app_store/chrome (para app_store, busca la app en la App Store para que el usuario solo tenga que tocar Instalar — nunca instala nada automáticamente, eso iOS no lo permite a ninguna app)."
             ]
         ],
         "required": ["target"]
@@ -111,7 +111,10 @@ struct AppLauncherTool: JarvisTool {
         case "gmail":
             return [URL(string: "googlegmail://")].compactMap { $0 }
         case "chrome":
-            return [URL(string: "googlechrome://")].compactMap { $0 }
+            let url = extra.isEmpty
+                ? URL(string: "googlechrome://")
+                : URL(string: "googlechrome://www.google.com/search?q=\(encoded)")
+            return [url].compactMap { $0 }
         case "teams":
             return [URL(string: "msteams://")].compactMap { $0 }
         case "app_store":
