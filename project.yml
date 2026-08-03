@@ -77,6 +77,8 @@ targets:
           - canva
           - clock-alarm
           - weather
+          - liftoff
+          - rider
         UIBackgroundModes:
           - audio
         CFBundleURLTypes:

@@ -27,7 +27,7 @@ struct AppLauncherTool: JarvisTool {
                     "app_store", "music", "notes", "voice_memos", "files",
                     "chatgpt", "claude", "netflix", "prime_video", "movistar_plus",
                     "hbo_max", "brawl_stars", "clash_royale", "capcut", "canva",
-                    "clock", "weather"
+                    "clock", "weather", "liftoff_gym", "rider_stunt_bike"
                 ]
             ],
             "query_or_recipient": [
@@ -149,6 +149,10 @@ struct AppLauncherTool: JarvisTool {
             return [URL(string: "clock-alarm://")].compactMap { $0 }
         case "weather":
             return [URL(string: "weather://")].compactMap { $0 }
+        case "liftoff_gym":
+            return [URL(string: "liftoff://")].compactMap { $0 }
+        case "rider_stunt_bike":
+            return [URL(string: "rider://")].compactMap { $0 }
         default:
             return []
         }

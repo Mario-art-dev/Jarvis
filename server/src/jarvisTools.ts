@@ -37,7 +37,7 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
             "app_store", "music", "notes", "voice_memos", "files",
             "chatgpt", "claude", "netflix", "prime_video", "movistar_plus",
             "hbo_max", "brawl_stars", "clash_royale", "capcut", "canva",
-            "clock", "weather"
+            "clock", "weather", "liftoff_gym", "rider_stunt_bike"
           ]),
           query_or_recipient: z.string().optional().describe(
             "Opcional: dirección para maps/google_maps, destinatario para messages/mail/phone/whatsapp, término de búsqueda para youtube/app_store."
