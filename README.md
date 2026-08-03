@@ -306,6 +306,35 @@ Con los dos creados, podrás decirle cosas como *"Créame una nota con la receta
 
 **Aviso honesto:** es la parte más "artesanal" de todo el proyecto — depende de que los Atajos estén construidos exactamente así, y los nombres de las acciones en Atajos pueden variar ligeramente según tu versión de iOS. Si al probarlo no funciona, mándame una captura de cómo tienes montado el Atajo y lo ajustamos juntos. Cada llamada puede tardar unos segundos de más porque pasa por la app Atajos por el camino.
 
+## Alarmas y temporizadores (requiere configurar 2 Atajos más)
+
+Mismo motivo que con Notas: Apple no da a ninguna app de terceros acceso
+directo a la app Reloj, así que Jarvis pasa por dos Atajos que construyes
+tú una sola vez.
+
+**Aviso honesto sobre los límites:** Jarvis puede **crear alarmas nuevas**
+y **poner temporizadores nuevos** por voz. Eso es todo. Apple **no permite
+a ninguna app** (ni siquiera a Atajos) **leer las alarmas que ya tienes
+puestas**, **decir cuánto tiempo queda de un temporizador en marcha**, ni
+**iniciar o controlar el cronómetro**. No es una limitación de este
+proyecto — es que esa información y esos controles no están disponibles
+para nadie fuera de la propia app Reloj de Apple.
+
+**Atajo 1 — "Jarvis Crear Alarma"**
+1. Nuevo atajo, nómbralo exactamente: **`Jarvis Crear Alarma`**.
+2. Añade la acción **"Crear alarma"** (busca "alarma" en el buscador de acciones).
+3. En el campo de la hora, usa la variable **"Entrada de atajo"** — Jarvis manda la hora como texto en formato 24h (ej. `07:30`), y Atajos debería interpretarlo solo como una hora.
+4. Añade una última acción **"Detener y generar"** con el resultado puesto a texto fijo, por ejemplo `Alarma creada`.
+5. Desactiva **"Preguntar antes de ejecutar"** en los ajustes del atajo.
+
+**Atajo 2 — "Jarvis Iniciar Temporizador"**
+1. Nuevo atajo, nómbralo exactamente: **`Jarvis Iniciar Temporizador`**.
+2. Añade la acción **"Iniciar temporizador"**, con la duración puesta en **minutos** y usando la variable **"Entrada de atajo"** como cantidad.
+3. Añade una última acción **"Detener y generar"** con el resultado a texto fijo, por ejemplo `Temporizador iniciado`.
+4. Desactiva **"Preguntar antes de ejecutar"**.
+
+Con los dos creados, podrás decir cosas como *"Jarvis, ponme una alarma a las 7 y media"* o *"Jarvis, ponme un temporizador de 10 minutos"*. Si le pides que te diga qué alarmas tienes o cuánto queda de un temporizador, te dirá que no puede — es la limitación de Apple explicada arriba, no un fallo.
+
 ## Seguridad
 
 - Las claves de ElevenLabs y el token del servidor se guardan en el

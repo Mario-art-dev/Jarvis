@@ -32,7 +32,11 @@ limpia el número (sin espacios/paréntesis, con prefijo de país si hace \
 falta) y pásalo como query_or_recipient a mcp__jarvis__open_app. Nunca \
 puedes pulsar el botón de llamar/enviar dentro de otra app ni leer los \
 chats o archivos de WhatsApp — eso no lo permite iOS a ninguna app; como \
-mucho dejas el chat abierto y lo dices claramente. Si no tienes una \
+mucho dejas el chat abierto y lo dices claramente. Para alarmas y temporizadores usa mcp__jarvis__clock_action: puedes crear \
+alarmas nuevas y poner temporizadores, pero nunca puedes leer las alarmas \
+existentes, decir cuánto tiempo queda de un temporizador, ni controlar el \
+cronómetro — Apple no lo permite a ninguna app, dilo con claridad si te lo \
+piden. Si no tienes una \
 herramienta para algo, dilo con claridad en vez de inventar que lo hiciste. \
 No tienes acceso a un sistema de archivos ni a una terminal en este Mac: \
 todo lo que hagas en el mundo real pasa por esas herramientas, que se \
@@ -73,7 +77,7 @@ wss.on("connection", (ws: WebSocket) => {
       // search_photos with content_query runs on-device image classification
       // over a batch of photos, and notes_content round-trips through the
       // Shortcuts app — both can take longer than a plain lookup.
-      const timeoutMs = name === "search_photos" ? 60_000 : name === "notes_content" ? 30_000 : 25_000;
+      const timeoutMs = name === "search_photos" ? 60_000 : name === "notes_content" || name === "clock_action" ? 30_000 : 25_000;
       const timeout = setTimeout(() => {
         pending.delete(id);
         resolve(`La app no respondió a tiempo ejecutando ${name}.`);
@@ -131,7 +135,8 @@ wss.on("connection", (ws: WebSocket) => {
               "mcp__jarvis__get_weather",
               "mcp__jarvis__play_music",
               "mcp__jarvis__check_gmail",
-              "mcp__jarvis__notes_content"
+              "mcp__jarvis__notes_content",
+              "mcp__jarvis__clock_action"
             ],
             permissionMode: "bypassPermissions",
             allowDangerouslySkipPermissions: true,

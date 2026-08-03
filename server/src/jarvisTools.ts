@@ -118,6 +118,18 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
         })
       ),
       tool(
+        "clock_action",
+        "Crea una alarma nueva o inicia un temporizador de cuenta atrás en el iPhone. Requiere que el usuario tenga configurados los Atajos \"Jarvis Crear Alarma\" y \"Jarvis Iniciar Temporizador\". No puede leer alarmas existentes, decir cuánto queda de un temporizador, ni controlar el cronómetro — Apple no lo permite a ninguna app, ni siquiera a Atajos.",
+        {
+          action: z.enum(["create_alarm", "start_timer"]),
+          time_hhmm: z.string().optional().describe("Solo para create_alarm: hora en formato 24h HH:mm, ej. '07:30'."),
+          minutes: z.number().int().optional().describe("Solo para start_timer: minutos de cuenta atrás.")
+        },
+        async (args) => ({
+          content: [{ type: "text", text: await callOnPhone("clock_action", args) }]
+        })
+      ),
+      tool(
         "get_weather",
         "Consulta el tiempo actual real (temperatura, viento, humedad) en cualquier ciudad o lugar del mundo. Esta herramienta corre en el servidor, no en el iPhone.",
         { location: z.string().describe("Nombre de la ciudad o lugar, ej. 'Valencia' o 'Madrid, España'") },
