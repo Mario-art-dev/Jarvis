@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
+import { fetchWeather } from "./weather.js";
 
 /**
  * These tool names/schemas mirror Sources/JarvisApp/Core/Tools/*.swift on the
@@ -84,6 +85,14 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
         { name: z.string() },
         async (args) => ({
           content: [{ type: "text", text: await callOnPhone("search_contacts", args) }]
+        })
+      ),
+      tool(
+        "get_weather",
+        "Consulta el tiempo actual real (temperatura, viento, humedad) en cualquier ciudad o lugar del mundo. Esta herramienta corre en el servidor, no en el iPhone.",
+        { location: z.string().describe("Nombre de la ciudad o lugar, ej. 'Valencia' o 'Madrid, España'") },
+        async (args) => ({
+          content: [{ type: "text", text: await fetchWeather(args.location) }]
         })
       )
     ]
