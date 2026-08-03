@@ -55,10 +55,13 @@ wss.on("connection", (ws: WebSocket) => {
   const callOnPhone = (name: string, input: Record<string, unknown>): Promise<string> => {
     const id = randomUUID();
     return new Promise((resolve) => {
+      // search_photos with content_query runs on-device image classification
+      // over a batch of photos, which can take longer than a plain lookup.
+      const timeoutMs = name === "search_photos" ? 60_000 : 25_000;
       const timeout = setTimeout(() => {
         pending.delete(id);
         resolve(`La app no respondió a tiempo ejecutando ${name}.`);
-      }, 25_000);
+      }, timeoutMs);
       pending.set(id, { resolve, timeout });
       ws.send(JSON.stringify({ type: "tool_call", id, name, input }));
     });

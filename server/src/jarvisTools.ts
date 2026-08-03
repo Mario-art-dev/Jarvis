@@ -45,10 +45,13 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
       ),
       tool(
         "search_photos",
-        "Busca fotos en la galería del iPhone por rango de fechas, favoritas o capturas de pantalla.",
+        "Busca fotos en la galería del iPhone por rango de fechas, favoritas o capturas de pantalla. Con content_query, además clasifica el contenido (ej. 'dog', 'beach', 'car') sobre las fotos más recientes que cumplan el filtro, usando el clasificador de imágenes de Apple en el propio iPhone.",
         {
           filter: z.enum(["recent", "favorites", "screenshots", "today"]),
-          limit: z.number().int().optional()
+          limit: z.number().int().optional(),
+          content_query: z.string().optional().describe(
+            "Palabra en inglés que describe el contenido a buscar (ej. 'dog', 'cat', 'beach', 'car'). Traduce el término del usuario al inglés antes de llamar a la herramienta."
+          )
         },
         async (args) => ({
           content: [{ type: "text", text: await callOnPhone("search_photos", args) }]
