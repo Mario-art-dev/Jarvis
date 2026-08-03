@@ -348,6 +348,22 @@ Con los dos creados, podrás decir cosas como *"Jarvis, ponme una alarma a las 7
 
 Si en cualquier momento le dices algo que combine una palabra de foto/imagen/archivo con una palabra de enviar/mandar (ej. *"Jarvis, te voy a enviar una foto de este ejercicio, ayúdame a resolverlo"*), aparece un menú con tres opciones: **Fototeca**, **Cámara** y **Archivo**. Eliges una, seleccionas o haces la foto, y se manda junto con lo que le pediste — Claude la ve de verdad y responde según lo que aparezca en la imagen. No requiere ningún Atajo ni configuración adicional, funciona directamente. "Archivo" por ahora solo admite imágenes (no PDFs u otros documentos).
 
+## Crear y leer archivos (funciona directo, sin Atajos)
+
+A diferencia de Notas y Reloj, esto no necesita ningún Atajo: iOS le da a
+cada app su propia carpeta privada, y basta con hacerla visible en la app
+Archivos para poder usarla de verdad. Los archivos que Jarvis crea aparecen
+en **Archivos → En mi iPhone → Jarvis**.
+
+Puedes decirle cosas como *"Jarvis, créame un archivo llamado lista de la
+compra con leche, huevos y pan"*, *"Jarvis, léeme el archivo notas de la
+reunión"* o *"Jarvis, ¿qué archivos tengo guardados?"*.
+
+**Límites honestos:** solo archivos de **texto plano** (no PDF, Word,
+Excel...), y solo dentro de su propia carpeta — no puede crear ni leer
+archivos en otras carpetas de Archivos, iCloud Drive u otras apps, porque
+iOS no da ese acceso a ninguna app de terceros.
+
 ## Seguridad
 
 - Las claves de ElevenLabs y el token del servidor se guardan en el

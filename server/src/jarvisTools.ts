@@ -131,6 +131,18 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
         })
       ),
       tool(
+        "files_content",
+        "Crea, lee o lista archivos de texto en la carpeta de Jarvis dentro de la app Archivos del iPhone (\"En mi iPhone > Jarvis\"). Solo texto plano, no PDFs ni otros documentos, y solo dentro de esa carpeta.",
+        {
+          action: z.enum(["create", "read", "list"]),
+          filename: z.string().optional().describe("Para create/read: nombre del archivo, ej. 'lista de la compra.txt'."),
+          content: z.string().optional().describe("Solo para create: el texto del archivo.")
+        },
+        async (args) => ({
+          content: [{ type: "text", text: await callOnPhone("files_content", args) }]
+        })
+      ),
+      tool(
         "get_weather",
         "Consulta el tiempo actual real (temperatura, viento, humedad) en cualquier ciudad o lugar del mundo. Esta herramienta corre en el servidor, no en el iPhone.",
         { location: z.string().describe("Nombre de la ciudad o lugar, ej. 'Valencia' o 'Madrid, España'") },

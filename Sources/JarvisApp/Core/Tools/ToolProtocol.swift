@@ -44,7 +44,8 @@ final class ToolRegistry {
             ContactsTool(),
             PlayMusicTool(),
             NotesTool(),
-            ClockTool()
+            ClockTool(),
+            FilesTool()
         ]
     }
 

@@ -32,6 +32,13 @@ targets:
         NSCameraUsageDescription: "Jarvis puede abrir la cámara cuando se lo pidas."
         NSAppleMusicUsageDescription: "Jarvis puede buscar y reproducir tus playlists de Música cuando se lo pidas."
         NSLocalNetworkUsageDescription: "Jarvis se conecta a tu servidor Claude Code en la red local para pensar y responder."
+        # Makes Jarvis's own sandboxed Documents folder show up as a
+        # location inside the Files app ("En mi iPhone > Jarvis"), so files
+        # Jarvis creates are visible/manageable there without any extra
+        # permission prompt — this is the only file storage third-party
+        # apps get real access to on iOS.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
           # Tailscale IPs (100.x.x.x) aren't in the private ranges

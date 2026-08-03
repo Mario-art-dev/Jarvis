@@ -166,7 +166,8 @@ wss.on("connection", (ws: WebSocket) => {
               "mcp__jarvis__play_music",
               "mcp__jarvis__check_gmail",
               "mcp__jarvis__notes_content",
-              "mcp__jarvis__clock_action"
+              "mcp__jarvis__clock_action",
+              "mcp__jarvis__files_content"
             ],
             permissionMode: "bypassPermissions",
             allowDangerouslySkipPermissions: true,
