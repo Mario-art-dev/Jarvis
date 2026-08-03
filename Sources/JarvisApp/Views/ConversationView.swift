@@ -44,9 +44,6 @@ struct ConversationView: View {
                     }
                 }
                 Spacer()
-
-                micButton
-                    .padding(.bottom, 40)
             }
 
             if let written = engine.writtenResponse {
@@ -155,32 +152,13 @@ struct ConversationView: View {
         }
     }
 
-    private var micButton: some View {
-        Button {
-            if speech.isListening {
-                finishListeningAndSubmit()
-            } else {
-                beginListeningIfIdle(force: true)
-            }
-        } label: {
-            Image(systemName: speech.isListening ? "mic.fill" : "mic")
-                .font(.system(size: 30))
-                .foregroundColor(.black)
-                .frame(width: 76, height: 76)
-                .background(speech.isListening ? Color.red : Color(red: 0.35, green: 0.9, blue: 1.0))
-                .clipShape(Circle())
-                .shadow(color: .cyan.opacity(0.6), radius: 12)
-        }
-        .disabled(!config.isConfigured || engine.state == .thinking || engine.state == .speaking)
-    }
-
     /// Starts the mic automatically whenever Jarvis is free (idle, app in
     /// foreground, configured) — this is what makes listening "always on"
     /// while the app is open, with no tap required.
-    private func beginListeningIfIdle(force: Bool = false) {
+    private func beginListeningIfIdle() {
         guard config.isConfigured else { return }
         guard !speech.isListening else { return }
-        guard force || (engine.state == .idle && scenePhase == .active) else { return }
+        guard engine.state == .idle && scenePhase == .active else { return }
 
         speech.requestAuthorization { granted in
             guard granted else {
