@@ -106,6 +106,18 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
         })
       ),
       tool(
+        "notes_content",
+        "Crea una nota nueva con un contenido dado, o lee el contenido de una nota existente por título, en la app Notas del iPhone. Requiere que el usuario tenga configurados los Atajos \"Jarvis Crear Nota\" y \"Jarvis Leer Nota\" — puede tardar hasta 20s en responder porque pasa por la app Atajos.",
+        {
+          action: z.enum(["create", "read"]),
+          title: z.string().describe("Para create: título de la nota nueva. Para read: título (o parte) de la nota a buscar."),
+          content: z.string().optional().describe("Solo para create: el texto de la nota.")
+        },
+        async (args) => ({
+          content: [{ type: "text", text: await callOnPhone("notes_content", args) }]
+        })
+      ),
+      tool(
         "get_weather",
         "Consulta el tiempo actual real (temperatura, viento, humedad) en cualquier ciudad o lugar del mundo. Esta herramienta corre en el servidor, no en el iPhone.",
         { location: z.string().describe("Nombre de la ciudad o lugar, ej. 'Valencia' o 'Madrid, España'") },

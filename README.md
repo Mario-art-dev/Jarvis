@@ -278,6 +278,34 @@ Claude (consume uso de tu suscripción) e intentará responder. Si prefieres
 volver al modo "pulsa para hablar" de toda la vida, dímelo y lo dejo como
 opción activable en Ajustes en vez de comportamiento por defecto.
 
+## Crear y leer Notas (requiere configurar 2 Atajos, una sola vez)
+
+Apple no da a ninguna app de terceros acceso directo a Notas (a diferencia
+de Calendario/Recordatorios/Contactos, que sí tienen un framework
+público). El único camino real es pasar por la app **Atajos**, que sí
+tiene ese acceso especial. Por eso, para que Jarvis pueda crear o leer
+notas, tienes que construir **dos Atajos tú mismo, una sola vez** — a
+partir de ahí funciona solo por voz.
+
+**Atajo 1 — "Jarvis Crear Nota"**
+1. Abre la app **Atajos** → pestaña **Mis Atajos** → **+** (nuevo atajo).
+2. Toca el nombre por defecto y ponle exactamente: **`Jarvis Crear Nota`** (respeta mayúsculas y espacios).
+3. Añade la acción **"Crear nota"** (busca "nota" en el buscador de acciones).
+4. En el contenido de esa acción, usa la variable **"Entrada rápida"** (Shortcut Input) — es el texto que le va a mandar Jarvis, no escribas nada fijo ahí.
+5. Añade una última acción **"Texto"** con algo como `Nota creada` (esto es lo que Jarvis recibe de vuelta como confirmación).
+6. Toca el icono de ajustes del atajo (los "···" o el icono de información) y **desactiva "Preguntar antes de ejecutar"** — importante, si no, cada vez te saldrá un aviso pidiendo confirmar.
+
+**Atajo 2 — "Jarvis Leer Nota"**
+1. Nuevo atajo, nómbralo exactamente: **`Jarvis Leer Nota`**.
+2. Añade la acción **"Buscar notas"** (Find Notes), y configúrala para buscar donde **"Nombre" contiene "Entrada rápida"**.
+3. Añade la acción **"Obtener detalles de notas"** (Get Details of Notes), pidiendo el **"Texto sin formato"** (o "Cuerpo") de las notas encontradas.
+4. Asegúrate de que esa sea la **última acción** del atajo (su resultado es lo que Jarvis recibe y te lee).
+5. Igual que el anterior, **desactiva "Preguntar antes de ejecutar"**.
+
+Con los dos creados, podrás decirle cosas como *"Créame una nota con la receta de tarta de queso que me diste"* o *"Léeme la nota de entrenamiento físico"*, y Jarvis se encarga del resto.
+
+**Aviso honesto:** es la parte más "artesanal" de todo el proyecto — depende de que los Atajos estén construidos exactamente así, y los nombres de las acciones en Atajos pueden variar ligeramente según tu versión de iOS. Si al probarlo no funciona, mándame una captura de cómo tienes montado el Atajo y lo ajustamos juntos. Cada llamada puede tardar unos segundos de más porque pasa por la app Atajos por el camino.
+
 ## Seguridad
 
 - Las claves de ElevenLabs y el token del servidor se guardan en el

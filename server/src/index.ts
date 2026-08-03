@@ -71,8 +71,9 @@ wss.on("connection", (ws: WebSocket) => {
     const id = randomUUID();
     return new Promise((resolve) => {
       // search_photos with content_query runs on-device image classification
-      // over a batch of photos, which can take longer than a plain lookup.
-      const timeoutMs = name === "search_photos" ? 60_000 : 25_000;
+      // over a batch of photos, and notes_content round-trips through the
+      // Shortcuts app — both can take longer than a plain lookup.
+      const timeoutMs = name === "search_photos" ? 60_000 : name === "notes_content" ? 30_000 : 25_000;
       const timeout = setTimeout(() => {
         pending.delete(id);
         resolve(`La app no respondió a tiempo ejecutando ${name}.`);
@@ -129,7 +130,8 @@ wss.on("connection", (ws: WebSocket) => {
               "mcp__jarvis__search_contacts",
               "mcp__jarvis__get_weather",
               "mcp__jarvis__play_music",
-              "mcp__jarvis__check_gmail"
+              "mcp__jarvis__check_gmail",
+              "mcp__jarvis__notes_content"
             ],
             permissionMode: "bypassPermissions",
             allowDangerouslySkipPermissions: true,

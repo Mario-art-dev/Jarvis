@@ -65,11 +65,19 @@ struct ConversationView: View {
             }
         }
         .onOpenURL { url in
-            // jarvisapp://listen — triggered by the Siri Shortcut / Back Tap
-            // so saying "Oye Siri, despierta Jarvis" (or a double Back Tap)
-            // opens the app and starts listening in one step.
-            guard url.host == "listen" else { return }
-            beginListeningIfIdle()
+            switch url.host {
+            case "listen":
+                // jarvisapp://listen — triggered by the Siri Shortcut / Back
+                // Tap so saying "Oye Siri, despierta Jarvis" (or a double
+                // Back Tap) opens the app and starts listening in one step.
+                beginListeningIfIdle()
+            case "notes-callback":
+                // The Shortcuts app calling back into us with the result of
+                // "Jarvis Crear Nota" / "Jarvis Leer Nota" — see NotesTool.
+                NotesShortcutBridge.shared.handleCallback(url: url)
+            default:
+                break
+            }
         }
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {

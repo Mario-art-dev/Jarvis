@@ -42,7 +42,8 @@ final class ToolRegistry {
             CalendarTool(),
             RemindersTool(),
             ContactsTool(),
-            PlayMusicTool()
+            PlayMusicTool(),
+            NotesTool()
         ]
     }
 
