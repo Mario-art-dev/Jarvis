@@ -22,6 +22,8 @@ de esas reglas:
 - Buscar contactos por nombre (vía Contacts framework).
 - Contar/buscar fotos en tu galería por fecha, favoritas o capturas (vía Photos framework), y también por *contenido* ("fotos de perros", "fotos de la playa") usando el clasificador de imágenes de Apple (Vision), corriendo en el propio iPhone sin internet. Solo analiza tus fotos más recientes (hasta 120) para que sea rápido, no toda la galería.
 - Consultar el tiempo real (temperatura, viento, humedad) de cualquier lugar del mundo, sin API key, corriendo en el servidor.
+- Buscar y leer la web de verdad (no solo abrir una búsqueda) usando WebSearch/WebFetch, para preguntas que necesiten información actual de internet.
+- Reproducir una playlist tuya de la app Música por nombre, con reproducción aleatoria opcional (vía MediaPlayer, solo playlists que ya tengas guardadas en tu biblioteca).
 
 **No incluido, y por qué:**
 - Leer WhatsApp/Instagram/apps bancarias por dentro, o "controlar" otra app como si fueras tú: iOS no expone eso a ninguna app de terceros, jailbreak included solo con muchísimo riesgo de seguridad — no lo vamos a hacer.

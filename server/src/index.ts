@@ -119,7 +119,8 @@ wss.on("connection", (ws: WebSocket) => {
               "mcp__jarvis__calendar",
               "mcp__jarvis__reminders",
               "mcp__jarvis__search_contacts",
-              "mcp__jarvis__get_weather"
+              "mcp__jarvis__get_weather",
+              "mcp__jarvis__play_music"
             ],
             permissionMode: "bypassPermissions",
             allowDangerouslySkipPermissions: true,

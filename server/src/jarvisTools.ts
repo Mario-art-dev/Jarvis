@@ -91,6 +91,17 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
         })
       ),
       tool(
+        "play_music",
+        "Reproduce una playlist de la app Música del iPhone por nombre, opcionalmente aleatoria (shuffle). Solo encuentra playlists ya guardadas en la biblioteca del usuario.",
+        {
+          playlist_name: z.string().describe("Nombre (o parte del nombre) de la playlist a buscar"),
+          shuffle: z.boolean().optional().describe("Si es true, activa reproducción aleatoria")
+        },
+        async (args) => ({
+          content: [{ type: "text", text: await callOnPhone("play_music", args) }]
+        })
+      ),
+      tool(
         "get_weather",
         "Consulta el tiempo actual real (temperatura, viento, humedad) en cualquier ciudad o lugar del mundo. Esta herramienta corre en el servidor, no en el iPhone.",
         { location: z.string().describe("Nombre de la ciudad o lugar, ej. 'Valencia' o 'Madrid, España'") },
