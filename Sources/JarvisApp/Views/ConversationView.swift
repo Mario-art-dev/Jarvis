@@ -44,7 +44,14 @@ struct ConversationView: View {
                 micButton
                     .padding(.bottom, 40)
             }
+
+            if let written = engine.writtenResponse {
+                WrittenResponseView(text: written) {
+                    engine.writtenResponse = nil
+                }
+            }
         }
+        .animation(.easeInOut(duration: 0.25), value: engine.writtenResponse != nil)
         .sheet(isPresented: $showSettings) {
             SettingsView(config: config)
         }

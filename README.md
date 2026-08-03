@@ -239,6 +239,12 @@ que tengas que tocar nada:
   escucha fuerza el envío inmediato sin esperar el silencio; pulsarlo
   estando parado, lo reactiva a mano.
 
+**Respuesta escrita en vez de hablada:** si en tu frase dices la palabra
+**"escríbeme"** (en cualquier parte, ej. "escríbeme la lista de la compra"),
+Jarvis no la lee en voz alta — en su lugar aparece una pantalla con el texto
+de la respuesta, con una **X** arriba a la izquierda para cerrarla y volver
+a la pantalla normal de voz.
+
 **Aviso importante:** esto significa que el micrófono capta *todo* lo que
 se diga cerca del móvil mientras la app esté abierta en pantalla, no solo
 lo que te diriges a Jarvis — incluida conversación de fondo que no era para
