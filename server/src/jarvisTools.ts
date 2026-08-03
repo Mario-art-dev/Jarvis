@@ -31,13 +31,16 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
         "Abre una app o acción del sistema en el iPhone: maps, mail, messages, phone, facetime, camera, calendar, reminders, settings, whatsapp, spotify, instagram.",
         {
           target: z.enum([
-            "maps", "mail", "messages", "phone", "facetime", "camera",
+            "maps", "google_maps", "mail", "messages", "phone", "facetime", "camera",
             "calendar", "reminders", "settings", "whatsapp", "spotify",
             "instagram", "tiktok", "youtube", "gmail", "chrome", "teams",
-            "app_store", "music", "notes", "voice_memos", "files"
+            "app_store", "music", "notes", "voice_memos", "files",
+            "chatgpt", "claude", "netflix", "prime_video", "movistar_plus",
+            "hbo_max", "brawl_stars", "clash_royale", "capcut", "canva",
+            "clock", "weather"
           ]),
           query_or_recipient: z.string().optional().describe(
-            "Opcional: dirección para maps, destinatario para messages/mail/phone/whatsapp, término de búsqueda para youtube/app_store."
+            "Opcional: dirección para maps/google_maps, destinatario para messages/mail/phone/whatsapp, término de búsqueda para youtube/app_store."
           )
         },
         async (args) => ({

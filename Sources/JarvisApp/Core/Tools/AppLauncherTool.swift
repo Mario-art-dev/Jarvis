@@ -5,6 +5,13 @@ import UIKit
 /// iOS-legal equivalent of "launch app X" — there's no API to list every
 /// installed app or open one that doesn't have a known scheme, so this list
 /// is deliberately explicit rather than a generic "open anything."
+///
+/// Several schemes below (movistar_plus, hbo_max, brawl_stars,
+/// clash_royale, chatgpt, claude, clock, weather) are best-effort guesses
+/// at undocumented or unverifiable third-party schemes — there's no way to
+/// confirm them without a real device with each app installed. If one
+/// doesn't work, canOpenURL just reports it as unavailable (see
+/// ToolError.notSupported below); it fails safely rather than crashing.
 struct AppLauncherTool: JarvisTool {
     let name = "open_app"
     let description = "Abre una app o acción del sistema conocida por su nombre."
@@ -14,15 +21,18 @@ struct AppLauncherTool: JarvisTool {
             "target": [
                 "type": "string",
                 "enum": [
-                    "maps", "mail", "messages", "phone", "facetime", "camera",
+                    "maps", "google_maps", "mail", "messages", "phone", "facetime", "camera",
                     "calendar", "reminders", "settings", "whatsapp", "spotify",
                     "instagram", "tiktok", "youtube", "gmail", "chrome", "teams",
-                    "app_store", "music", "notes", "voice_memos", "files"
+                    "app_store", "music", "notes", "voice_memos", "files",
+                    "chatgpt", "claude", "netflix", "prime_video", "movistar_plus",
+                    "hbo_max", "brawl_stars", "clash_royale", "capcut", "canva",
+                    "clock", "weather"
                 ]
             ],
             "query_or_recipient": [
                 "type": "string",
-                "description": "Opcional: dirección para maps, destinatario para messages/mail/phone/whatsapp, término de búsqueda para youtube/app_store (para app_store, busca la app en la App Store para que el usuario solo tenga que tocar Instalar — nunca instala nada automáticamente, eso iOS no lo permite a ninguna app)."
+                "description": "Opcional: dirección para maps/google_maps, destinatario para messages/mail/phone/whatsapp, término de búsqueda para youtube/app_store (para app_store, busca la app en la App Store para que el usuario solo tenga que tocar Instalar — nunca instala nada automáticamente, eso iOS no lo permite a ninguna app)."
             ]
         ],
         "required": ["target"]
@@ -64,6 +74,9 @@ struct AppLauncherTool: JarvisTool {
         switch target {
         case "maps":
             return [URL(string: "maps://?q=\(encoded)")].compactMap { $0 }
+        case "google_maps":
+            let url = extra.isEmpty ? URL(string: "comgooglemaps://") : URL(string: "comgooglemaps://?q=\(encoded)")
+            return [url].compactMap { $0 }
         case "mail":
             return [URL(string: "mailto:\(extra)")].compactMap { $0 }
         case "messages":
@@ -112,6 +125,30 @@ struct AppLauncherTool: JarvisTool {
             return [URL(string: "voicememos://")].compactMap { $0 }
         case "files":
             return [URL(string: "shareddocuments://")].compactMap { $0 }
+        case "chatgpt":
+            return [URL(string: "chatgpt://")].compactMap { $0 }
+        case "claude":
+            return [URL(string: "claude://")].compactMap { $0 }
+        case "netflix":
+            return [URL(string: "nflx://")].compactMap { $0 }
+        case "prime_video":
+            return [URL(string: "primevideo://")].compactMap { $0 }
+        case "movistar_plus":
+            return [URL(string: "movistarplus://")].compactMap { $0 }
+        case "hbo_max":
+            return [URL(string: "hbomax://"), URL(string: "max://")].compactMap { $0 }
+        case "brawl_stars":
+            return [URL(string: "brawlstars://")].compactMap { $0 }
+        case "clash_royale":
+            return [URL(string: "clashroyale://")].compactMap { $0 }
+        case "capcut":
+            return [URL(string: "capcut://")].compactMap { $0 }
+        case "canva":
+            return [URL(string: "canva://")].compactMap { $0 }
+        case "clock":
+            return [URL(string: "clock-alarm://")].compactMap { $0 }
+        case "weather":
+            return [URL(string: "weather://")].compactMap { $0 }
         default:
             return []
         }

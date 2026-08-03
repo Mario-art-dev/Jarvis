@@ -63,6 +63,20 @@ targets:
           - mobilenotes
           - voicememos
           - shareddocuments
+          - comgooglemaps
+          - chatgpt
+          - claude
+          - nflx
+          - primevideo
+          - movistarplus
+          - hbomax
+          - max
+          - brawlstars
+          - clashroyale
+          - capcut
+          - canva
+          - clock-alarm
+          - weather
         UIBackgroundModes:
           - audio
         CFBundleURLTypes:
