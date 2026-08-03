@@ -344,6 +344,10 @@ Si al insertar la variable de "Dividir texto" en un campo no te deja elegir dire
 
 Con los dos creados, podrás decir cosas como *"Jarvis, ponme una alarma a las 7 y media"* o *"Jarvis, ponme un temporizador de 10 minutos"*. Si le pides que te diga qué alarmas tienes o cuánto queda de un temporizador, te dirá que no puede — es la limitación de Apple explicada arriba, no un fallo.
 
+## Enviar fotos o archivos para que Jarvis los vea
+
+Si en cualquier momento le dices algo que combine una palabra de foto/imagen/archivo con una palabra de enviar/mandar (ej. *"Jarvis, te voy a enviar una foto de este ejercicio, ayúdame a resolverlo"*), aparece un menú con tres opciones: **Fototeca**, **Cámara** y **Archivo**. Eliges una, seleccionas o haces la foto, y se manda junto con lo que le pediste — Claude la ve de verdad y responde según lo que aparezca en la imagen. No requiere ningún Atajo ni configuración adicional, funciona directamente. "Archivo" por ahora solo admite imágenes (no PDFs u otros documentos).
+
 ## Seguridad
 
 - Las claves de ElevenLabs y el token del servidor se guardan en el

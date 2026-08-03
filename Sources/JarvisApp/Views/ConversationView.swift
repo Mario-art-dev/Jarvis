@@ -6,6 +6,12 @@ struct ConversationView: View {
     @StateObject private var engine: ConversationEngine
     @State private var showSettings = false
     @State private var hasGreeted = false
+    @State private var activeImageSource: ImageSource?
+
+    private enum ImageSource: String, Identifiable {
+        case library, camera, file
+        var id: String { rawValue }
+    }
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -52,6 +58,50 @@ struct ConversationView: View {
         .animation(.easeInOut(duration: 0.25), value: engine.writtenResponse != nil)
         .sheet(isPresented: $showSettings) {
             SettingsView(config: config)
+        }
+        .confirmationDialog("¿Cómo quieres enviar la foto?", isPresented: $engine.showImageSourceMenu, titleVisibility: .visible) {
+            Button("Fototeca") { activeImageSource = .library }
+            Button("Cámara") { activeImageSource = .camera }
+            Button("Archivo") { activeImageSource = .file }
+            Button("Cancelar", role: .cancel) { engine.cancelImageRequest() }
+        }
+        .sheet(item: $activeImageSource) { source in
+            switch source {
+            case .library:
+                PhotoLibraryPicker(
+                    onPicked: { attachments in
+                        activeImageSource = nil
+                        Task { await engine.handlePickedImages(attachments) }
+                    },
+                    onCancel: {
+                        activeImageSource = nil
+                        engine.cancelImageRequest()
+                    }
+                )
+            case .camera:
+                CameraCapturePicker(
+                    onPicked: { attachment in
+                        activeImageSource = nil
+                        Task { await engine.handlePickedImages([attachment]) }
+                    },
+                    onCancel: {
+                        activeImageSource = nil
+                        engine.cancelImageRequest()
+                    }
+                )
+                .ignoresSafeArea()
+            case .file:
+                FileImagePicker(
+                    onPicked: { attachments in
+                        activeImageSource = nil
+                        Task { await engine.handlePickedImages(attachments) }
+                    },
+                    onCancel: {
+                        activeImageSource = nil
+                        engine.cancelImageRequest()
+                    }
+                )
+            }
         }
         .onAppear {
             guard !hasGreeted, config.isConfigured else {

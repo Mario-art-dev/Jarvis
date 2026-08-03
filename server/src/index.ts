@@ -32,7 +32,10 @@ limpia el número (sin espacios/paréntesis, con prefijo de país si hace \
 falta) y pásalo como query_or_recipient a mcp__jarvis__open_app. Nunca \
 puedes pulsar el botón de llamar/enviar dentro de otra app ni leer los \
 chats o archivos de WhatsApp — eso no lo permite iOS a ninguna app; como \
-mucho dejas el chat abierto y lo dices claramente. Para alarmas y temporizadores usa mcp__jarvis__clock_action: puedes crear \
+mucho dejas el chat abierto y lo dices claramente. Cuando el usuario te envíe una foto (aparecerá como imagen adjunta en su \
+mensaje), analízala y responde a lo que te haya pedido sobre ella con \
+naturalidad, como si la estuvieras viendo — porque la estás viendo. \
+Para alarmas y temporizadores usa mcp__jarvis__clock_action: puedes crear \
 alarmas nuevas y poner temporizadores, pero nunca puedes leer las alarmas \
 existentes, decir cuánto tiempo queda de un temporizador, ni controlar el \
 cronómetro — Apple no lo permite a ninguna app, dilo con claridad si te lo \
@@ -112,9 +115,36 @@ wss.on("connection", (ws: WebSocket) => {
       const text = String(msg.text ?? "");
       if (!text.trim()) return;
 
+      // Photos the user attached (via the "te voy a enviar una foto" flow)
+      // ride along as image content blocks in the same turn, instead of a
+      // plain string prompt.
+      const images: Array<{ media_type?: string; data?: string }> = Array.isArray(msg.images) ? msg.images : [];
+      const validImages = images.filter(
+        (img): img is { media_type: string; data: string } => typeof img.media_type === "string" && typeof img.data === "string"
+      );
+
+      const prompt = validImages.length > 0
+        ? (async function* () {
+            yield {
+              type: "user" as const,
+              message: {
+                role: "user" as const,
+                content: [
+                  { type: "text" as const, text },
+                  ...validImages.map((img) => ({
+                    type: "image" as const,
+                    source: { type: "base64" as const, media_type: img.media_type as "image/jpeg" | "image/png" | "image/gif" | "image/webp", data: img.data }
+                  }))
+                ]
+              },
+              parent_tool_use_id: null
+            };
+          })()
+        : text;
+
       try {
         const stream = query({
-          prompt: text,
+          prompt,
           options: {
             systemPrompt: SYSTEM_PROMPT,
             mcpServers: { jarvis: toolServer },

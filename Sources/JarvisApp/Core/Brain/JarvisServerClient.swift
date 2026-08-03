@@ -39,7 +39,9 @@ final class JarvisServerClient: NSObject {
     /// Sends one user utterance, drives the tool-call loop, and returns the
     /// final spoken answer. Opens a fresh WebSocket per turn — simplest thing
     /// that works reliably on mobile networks that sleep/reconnect often.
-    func ask(_ text: String, config: AppConfig) async throws -> String {
+    /// `images`, when non-empty, rides along in the same message so Claude
+    /// sees the text and the photo(s) together as one turn.
+    func ask(_ text: String, images: [ImageAttachment] = [], config: AppConfig) async throws -> String {
         guard !config.serverURL.isEmpty, !config.serverToken.isEmpty else {
             throw ServerError.missingConfig
         }
@@ -59,7 +61,8 @@ final class JarvisServerClient: NSObject {
             task = nil
         }
 
-        try await send(["type": "user_message", "text": text], on: ws)
+        let imagePayload = images.map { ["media_type": $0.mediaType, "data": $0.data.base64EncodedString()] }
+        try await send(["type": "user_message", "text": text, "images": imagePayload], on: ws)
 
         while true {
             let message = try await ws.receive()
