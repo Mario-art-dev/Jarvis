@@ -39,8 +39,6 @@ struct ConversationView: View {
                 }
                 Spacer()
 
-                transcriptView
-
                 micButton
                     .padding(.bottom, 40)
             }
@@ -96,28 +94,6 @@ struct ConversationView: View {
             Button("OK") { engine.lastError = nil }
         } message: {
             Text(engine.lastError ?? "")
-        }
-    }
-
-    private var transcriptView: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(engine.transcript) { entry in
-                        Text("\(entry.speaker): \(entry.text)")
-                            .foregroundColor(entry.speaker == "Tú" ? .white.opacity(0.7) : Color(red: 0.35, green: 0.9, blue: 1.0))
-                            .font(.system(.body, design: .rounded))
-                            .id(entry.id)
-                    }
-                }
-                .padding()
-            }
-            .frame(maxHeight: 220)
-            .onChange(of: engine.transcript.count) { _ in
-                if let last = engine.transcript.last {
-                    withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
-                }
-            }
         }
     }
 
