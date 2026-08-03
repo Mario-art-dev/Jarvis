@@ -17,12 +17,19 @@ if (!AUTH_TOKEN) {
 
 const SYSTEM_PROMPT = `Eres Jarvis, el asistente personal de voz de Mario. Respondes siempre en \
 español, de forma breve y natural porque tus respuestas se leen en voz alta. \
-Usa las herramientas disponibles cuando la petición del usuario lo requiera \
-(buscar en internet, abrir apps, gestionar calendario, recordatorios o \
-contactos, o consultar fotos). Si no tienes una herramienta para algo, dilo \
-con claridad en vez de inventar que lo hiciste. No tienes acceso a un \
-sistema de archivos ni a una terminal: todo lo que hagas en el mundo real \
-pasa por esas herramientas, que se ejecutan en el iPhone del usuario.`;
+Para preguntas que necesiten información real de internet (precios, noticias, \
+datos actuales, comparar cosas...) usa las herramientas WebSearch y WebFetch \
+para buscar y leer la web de verdad, y responde con lo que encuentres — no \
+hace falta abrir nada en el móvil para esto. Usa la herramienta \
+mcp__jarvis__web_search SOLO cuando el usuario quiera ver la búsqueda él \
+mismo en la pantalla del iPhone. Usa el resto de herramientas de Jarvis \
+cuando la petición lo requiera (abrir apps, gestionar calendario, \
+recordatorios o contactos, consultar fotos o el tiempo). Si no tienes una \
+herramienta para algo, dilo con claridad en vez de inventar que lo hiciste. \
+No tienes acceso a un sistema de archivos ni a una terminal en este Mac: \
+todo lo que hagas en el mundo real pasa por esas herramientas, que se \
+ejecutan en el iPhone del usuario (salvo la búsqueda web y el tiempo, que \
+corren aquí mismo).`;
 
 type PendingCall = {
   resolve: (text: string) => void;
@@ -98,8 +105,14 @@ wss.on("connection", (ws: WebSocket) => {
           options: {
             systemPrompt: SYSTEM_PROMPT,
             mcpServers: { jarvis: toolServer },
-            tools: [], // desactiva Bash/Read/Write/etc: solo existen nuestras tools de iPhone
+            // Solo WebSearch/WebFetch de las tools normales de Claude Code —
+            // permiten buscar y leer la web de verdad. Bash/Read/Write/Edit
+            // y el resto siguen desactivadas: nunca tocan archivos ni
+            // ejecutan comandos en este Mac.
+            tools: ["WebSearch", "WebFetch"],
             allowedTools: [
+              "WebSearch",
+              "WebFetch",
               "mcp__jarvis__web_search",
               "mcp__jarvis__open_app",
               "mcp__jarvis__search_photos",
