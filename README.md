@@ -126,6 +126,33 @@ Verás `Jarvis server escuchando en :8787`. Mientras ese proceso esté vivo y
 tengas sesión iniciada con `claude login`, el servidor usa tu suscripción
 normal de Claude — no se factura por API aparte.
 
+### Si tu Mac no puede actualizarse a macOS 13+ (error "dyld: Symbol not found")
+
+Si al hablarle a Jarvis te sale un error de conexión mencionando `dyld:
+Symbol not found` y `claude-agent-sdk-darwin-x64`, es que tu Mac es
+demasiado antiguo: el paquete del servidor trae su propio ejecutable de
+Claude compilado, que requiere macOS 13 (Ventura) o más nuevo. Arréglalo
+apuntando el servidor a una versión antigua de Claude Code que sí funciona
+en macOS más viejos:
+
+```bash
+# Instala la versión antigua (sin binario nativo) en paralelo a la actual
+npm install -g @anthropic-ai/claude-code@2.1.112
+
+# Averigua dónde se instaló
+npm root -g
+# Te dará algo como /usr/local/lib/node_modules — añádele
+# /@anthropic-ai/claude-code/cli.js
+```
+
+Añade esa ruta completa a tu `server/.env`:
+```
+CLAUDE_CODE_EXECUTABLE_PATH=/usr/local/lib/node_modules/@anthropic-ai/claude-code/cli.js
+```
+
+Reinicia el servidor (`Ctrl+C` y `npm start`). Si tu Mac es reciente y
+nunca te ha dado este error, no hace falta tocar nada de esto.
+
 **Averigua la IP de ese ordenador** en tu red local (macOS: Ajustes →
 Wi-Fi → Detalles → IP; o `ipconfig getifaddr en0` en Terminal). La usarás en
 la app como `ws://TU_IP:8787`.

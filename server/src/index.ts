@@ -11,6 +11,12 @@ import { loadProfile } from "./profile.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const AUTH_TOKEN = process.env.JARVIS_SERVER_TOKEN;
+// @anthropic-ai/claude-agent-sdk bundles its own compiled "claude" binary,
+// which (as of this SDK version) requires macOS 13+ and crashes on older
+// systems (missing libc++ symbols). On a Mac that can't be upgraded, set
+// this to the cli.js of a separately-installed pure-JS claude-code build
+// (see README) so the SDK shells out to that instead of its own binary.
+const CLAUDE_EXECUTABLE_PATH = process.env.CLAUDE_CODE_EXECUTABLE_PATH;
 
 // The phone opens a fresh WebSocket per turn (see JarvisServerClient), so
 // conversation memory can't live on the connection — it has to be a single
@@ -221,7 +227,8 @@ wss.on("connection", (ws: WebSocket) => {
             ],
             permissionMode: "bypassPermissions",
             allowDangerouslySkipPermissions: true,
-            ...(sessionId ? { resume: sessionId } : {})
+            ...(sessionId ? { resume: sessionId } : {}),
+            ...(CLAUDE_EXECUTABLE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_EXECUTABLE_PATH, executable: "node" as const } : {})
           }
         });
 
