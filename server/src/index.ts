@@ -1,12 +1,42 @@
 import "dotenv/config";
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
+import { readFileSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { createJarvisToolServer } from "./jarvisTools.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const AUTH_TOKEN = process.env.JARVIS_SERVER_TOKEN;
+
+// The phone opens a fresh WebSocket per turn (see JarvisServerClient), so
+// conversation memory can't live on the connection — it has to be a single
+// value shared across every connection, persisted to disk so it survives
+// server restarts too. This is what makes Jarvis actually remember earlier
+// turns instead of starting from scratch every time he's asked something.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const SESSION_FILE = join(__dirname, "..", ".jarvis-session-id");
+
+function loadSessionId(): string | undefined {
+  try {
+    const saved = readFileSync(SESSION_FILE, "utf8").trim();
+    return saved || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function saveSessionId(id: string) {
+  try {
+    writeFileSync(SESSION_FILE, id, "utf8");
+  } catch (error) {
+    console.error("No pude guardar la sesión de Jarvis:", error);
+  }
+}
+
+let sessionId: string | undefined = loadSessionId();
 
 if (!AUTH_TOKEN) {
   console.error(
@@ -77,7 +107,6 @@ const wss = new WebSocketServer({
 
 wss.on("connection", (ws: WebSocket) => {
   console.log("Teléfono conectado.");
-  let sessionId: string | undefined;
   const pending = new Map<string, PendingCall>();
 
   const callOnPhone = (name: string, input: Record<string, unknown>): Promise<string> => {
@@ -184,6 +213,7 @@ wss.on("connection", (ws: WebSocket) => {
         for await (const event of stream) {
           if (event.type === "result") {
             sessionId = event.session_id;
+            saveSessionId(sessionId);
             if (event.subtype === "success") {
               ws.send(JSON.stringify({ type: "final_answer", text: event.result }));
             } else {

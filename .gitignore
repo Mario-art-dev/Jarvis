@@ -11,3 +11,4 @@ xcuserdata/
 node_modules/
 dist/
 .env
+.jarvis-session-id
