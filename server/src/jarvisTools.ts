@@ -2,6 +2,7 @@ import { z } from "zod";
 import { tool, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 import { fetchWeather } from "./weather.js";
 import { checkGmail } from "./gmail.js";
+import { rememberFact } from "./profile.js";
 
 /**
  * These tool names/schemas mirror Sources/JarvisApp/Core/Tools/*.swift on the
@@ -140,6 +141,14 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
         },
         async (args) => ({
           content: [{ type: "text", text: await callOnPhone("files_content", args) }]
+        })
+      ),
+      tool(
+        "remember_fact",
+        "Guarda para siempre un dato permanente sobre el usuario, su familia o sus preferencias (ej. nombres de familiares, dónde vive, gustos, cosas básicas). Úsalo cuando comparta algo que claramente quiere que recuerdes de forma duradera, no para cosas puntuales del día a día como una tarea o un evento concreto.",
+        { fact: z.string().describe("El dato a recordar, en una frase clara y autocontenida, ej. 'Su hermana se llama Laura y vive en Madrid.'") },
+        async (args) => ({
+          content: [{ type: "text", text: rememberFact(args.fact) }]
         })
       ),
       tool(

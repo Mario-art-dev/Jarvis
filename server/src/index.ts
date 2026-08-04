@@ -7,6 +7,7 @@ import { dirname, join } from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { createJarvisToolServer } from "./jarvisTools.js";
+import { loadProfile } from "./profile.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const AUTH_TOKEN = process.env.JARVIS_SERVER_TOKEN;
@@ -45,7 +46,11 @@ if (!AUTH_TOKEN) {
   process.exit(1);
 }
 
-const SYSTEM_PROMPT = `Eres Jarvis, el asistente personal de voz de Mario. Respondes siempre en \
+const SYSTEM_PROMPT = `Eres Jarvis, el asistente personal de voz de Mario. Te diriges a él como \
+"señor Gimeno". Si el usuario comparte un dato duradero sobre sí mismo, su \
+familia o sus preferencias (no algo puntual del día a día), guárdalo con \
+mcp__jarvis__remember_fact para recordarlo siempre a partir de entonces. \
+Respondes siempre en \
 español, de forma natural porque tus respuestas se leen en voz alta — para \
 datos simples sé breve, pero cuando te pidan una recomendación o decisión \
 que depende de varios factores (ej. "¿a qué hora es mejor ir hoy al \
@@ -187,11 +192,19 @@ wss.on("connection", (ws: WebSocket) => {
           })()
         : text;
 
+      // Re-read on every turn (not once at startup) so a fact remembered a
+      // moment ago is already known on the very next message, and this
+      // stays present even if the resumed session itself ever gets summarized.
+      const profile = loadProfile();
+      const systemPrompt = profile
+        ? `${SYSTEM_PROMPT}\n\nDatos permanentes que ya sabes sobre el usuario:\n${profile}`
+        : SYSTEM_PROMPT;
+
       try {
         const stream = query({
           prompt,
           options: {
-            systemPrompt: SYSTEM_PROMPT,
+            systemPrompt,
             mcpServers: { jarvis: toolServer },
             // Solo WebSearch/WebFetch de las tools normales de Claude Code —
             // permiten buscar y leer la web de verdad. Bash/Read/Write/Edit
@@ -212,7 +225,8 @@ wss.on("connection", (ws: WebSocket) => {
               "mcp__jarvis__check_gmail",
               "mcp__jarvis__notes_content",
               "mcp__jarvis__clock_action",
-              "mcp__jarvis__files_content"
+              "mcp__jarvis__files_content",
+              "mcp__jarvis__remember_fact"
             ],
             permissionMode: "bypassPermissions",
             allowDangerouslySkipPermissions: true,
