@@ -43,6 +43,7 @@ final class ToolRegistry {
             RemindersTool(),
             ContactsTool(),
             PlayMusicTool(),
+            MusicControlTool(),
             NotesTool(),
             ClockTool(),
             FilesTool()

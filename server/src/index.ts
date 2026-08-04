@@ -212,6 +212,7 @@ wss.on("connection", (ws: WebSocket) => {
               "mcp__jarvis__search_contacts",
               "mcp__jarvis__get_weather",
               "mcp__jarvis__play_music",
+              "mcp__jarvis__music_control",
               "mcp__jarvis__check_gmail",
               "mcp__jarvis__notes_content",
               "mcp__jarvis__clock_action",

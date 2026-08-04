@@ -107,6 +107,16 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
         })
       ),
       tool(
+        "music_control",
+        "Controla la reproducción actual de la app Música del iPhone: pausar, reanudar, siguiente/anterior canción, y subir/bajar el volumen del dispositivo.",
+        {
+          action: z.enum(["pause", "resume", "next", "previous", "volume_up", "volume_down"])
+        },
+        async (args) => ({
+          content: [{ type: "text", text: await callOnPhone("music_control", args) }]
+        })
+      ),
+      tool(
         "notes_content",
         "Crea una nota nueva con un contenido dado, o lee el contenido de una nota existente por título, en la app Notas del iPhone. Requiere que el usuario tenga configurados los Atajos \"Jarvis Crear Nota\" y \"Jarvis Leer Nota\" — puede tardar hasta 20s en responder porque pasa por la app Atajos.",
         {
