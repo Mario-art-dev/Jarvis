@@ -254,9 +254,19 @@ final class ConversationEngine: ObservableObject {
     /// that entirely: no echo is going to transcribe as "calla" by
     /// accident, so it doesn't need comparing against what's being said.
     private func startInterruptWatch() {
-        speech.requestAuthorization { [weak self] granted in
-            guard let self, granted, !self.speech.isListening else { return }
-            self.speech.startListening()
+        // Synchronous fast path when already authorized (the normal case
+        // after the first launch) — going through the async
+        // requestAuthorization callback every single time Jarvis speaks
+        // risked it landing late, after the mic/state had already moved on
+        // to something else, and starting the mic back up at the wrong
+        // moment.
+        if speech.isAuthorized {
+            if !speech.isListening { speech.startListening() }
+        } else {
+            speech.requestAuthorization { [weak self] granted in
+                guard let self, granted, !self.speech.isListening else { return }
+                self.speech.startListening()
+            }
         }
         interruptWatch = speech.$transcript
             .receive(on: DispatchQueue.main)

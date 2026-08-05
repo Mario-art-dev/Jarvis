@@ -33,7 +33,26 @@ final class SpeechRecognizer: NSObject, ObservableObject {
     private var task: SFSpeechRecognitionTask?
     private let audioEngine = AVAudioEngine()
 
+    /// True once both Speech and mic permission are already granted — lets
+    /// callers that fire on every single turn (see ConversationEngine.
+    /// startInterruptWatch) skip the async request entirely and start
+    /// listening synchronously instead. Going through
+    /// SFSpeechRecognizer.requestAuthorization every time, even when
+    /// already authorized, still completes via an async callback — one
+    /// that could land late enough to fire after the mic/state had already
+    /// moved on to something else, occasionally starting the mic back up
+    /// at the wrong moment. Checking the already-known status directly
+    /// avoids that race for the overwhelmingly common case.
+    var isAuthorized: Bool {
+        SFSpeechRecognizer.authorizationStatus() == .authorized
+            && AVAudioSession.sharedInstance().recordPermission == .granted
+    }
+
     func requestAuthorization(completion: @escaping (Bool) -> Void) {
+        if isAuthorized {
+            completion(true)
+            return
+        }
         SFSpeechRecognizer.requestAuthorization { status in
             AVAudioSession.sharedInstance().requestRecordPermission { granted in
                 DispatchQueue.main.async {
@@ -45,11 +64,39 @@ final class SpeechRecognizer: NSObject, ObservableObject {
 
     func startListening() {
         guard !isListening else { return }
+        guard let recognizer = recognizer else {
+            errorMessage = "El reconocimiento de voz no está disponible ahora mismo."
+            return
+        }
+        guard recognizer.isAvailable else {
+            // SFSpeechRecognizer can report unavailable for a brief moment
+            // right after a previous recognition task just ended — which,
+            // with how often this app starts/stops listening, happens
+            // often enough to matter. Without this retry it used to fail
+            // silently here while the caller had already optimistically
+            // marked the UI as "listening", leaving Jarvis looking frozen
+            // with a mic that never actually started. One retry after a
+            // brief pause covers the transient case; if it's still
+            // unavailable after that, errorMessage below lets
+            // ConversationView notice and recover instead of staying stuck.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                self?.retryStartListening()
+            }
+            return
+        }
+        beginListening(with: recognizer)
+    }
+
+    private func retryStartListening() {
+        guard !isListening else { return }
         guard let recognizer = recognizer, recognizer.isAvailable else {
             errorMessage = "El reconocimiento de voz no está disponible ahora mismo."
             return
         }
+        beginListening(with: recognizer)
+    }
 
+    private func beginListening(with recognizer: SFSpeechRecognizer) {
         do {
             // Shares one audio session with AudioPlayer (so the mic can
             // hear "calla" while Jarvis is talking) — see
@@ -72,6 +119,7 @@ final class SpeechRecognizer: NSObject, ObservableObject {
             audioEngine.prepare()
             try audioEngine.start()
             isListening = true
+            errorMessage = nil
             transcript = ""
 
             task = recognizer.recognitionTask(with: newRequest) { [weak self] result, error in

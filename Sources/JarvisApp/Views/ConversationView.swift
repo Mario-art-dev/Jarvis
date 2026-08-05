@@ -173,6 +173,18 @@ struct ConversationView: View {
                 beginListeningIfIdle()
             }
         }
+        .onChange(of: speech.errorMessage) { newValue in
+            // beginListeningIfIdle() marks state as .listening right before
+            // asking the mic to actually start — if that start silently
+            // fails (ej. the speech recognizer being transiently
+            // unavailable, see SpeechRecognizer.startListening), state was
+            // left stuck on .listening forever with a mic that never
+            // actually ran, since nothing else was watching for that.
+            // Resetting to .idle here lets the same retry loop above give
+            // it another try instead of looking permanently frozen.
+            guard newValue != nil, engine.state == .listening else { return }
+            engine.state = .idle
+        }
         .onReceive(silenceCheckTimer) { _ in
             // Only fires for the normal "waiting for the user" listening
             // state — while Jarvis is speaking the mic is running too (for
