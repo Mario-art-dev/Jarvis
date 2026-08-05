@@ -2,8 +2,13 @@ import SwiftUI
 
 struct ConversationView: View {
     @StateObject private var config = AppConfig()
-    @StateObject private var speech = SpeechRecognizer()
     @StateObject private var engine: ConversationEngine
+    /// Both live inside `engine` now (so it can run the mic while Jarvis is
+    /// speaking too, for barge-in — see ConversationEngine.speak). Bound
+    /// here as ObservedObject, not owned, purely so this view redraws when
+    /// their own @Published properties change (transcript, audioLevel...).
+    @ObservedObject private var speech: SpeechRecognizer
+    @ObservedObject private var audioPlayer: AudioPlayer
     @State private var showSettings = false
     @State private var hasGreeted = false
     @State private var activeImageSource: ImageSource?
@@ -25,12 +30,19 @@ struct ConversationView: View {
     init() {
         let sharedConfig = AppConfig()
         _config = StateObject(wrappedValue: sharedConfig)
-        _engine = StateObject(wrappedValue: ConversationEngine(config: sharedConfig))
+        let sharedEngine = ConversationEngine(config: sharedConfig)
+        _engine = StateObject(wrappedValue: sharedEngine)
+        _speech = ObservedObject(wrappedValue: sharedEngine.speech)
+        _audioPlayer = ObservedObject(wrappedValue: sharedEngine.audioPlayer)
     }
 
     var body: some View {
         ZStack {
-            HUDView(state: engine.state)
+            HUDView(
+                state: engine.state,
+                audioLevel: engine.state == .speaking ? audioPlayer.audioLevel : speech.audioLevel,
+                liveTranscript: engine.state == .listening ? speech.transcript : ""
+            )
 
             VStack {
                 HStack {
@@ -155,7 +167,11 @@ struct ConversationView: View {
             }
         }
         .onReceive(silenceCheckTimer) { _ in
-            guard speech.isListening, !speech.transcript.isEmpty else { return }
+            // Only fires for the normal "waiting for the user" listening
+            // state — while Jarvis is speaking the mic is running too (for
+            // barge-in), but that path is driven by ConversationEngine's own
+            // interrupt-comparison logic, not silence detection.
+            guard engine.state == .listening, speech.isListening, !speech.transcript.isEmpty else { return }
             guard speech.secondsSinceLastTranscriptChange() >= silenceThreshold else { return }
             finishListeningAndSubmit()
         }

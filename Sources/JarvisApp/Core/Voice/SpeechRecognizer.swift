@@ -13,6 +13,10 @@ final class SpeechRecognizer: NSObject, ObservableObject {
     }
     @Published var isListening: Bool = false
     @Published var errorMessage: String?
+    /// Rough 0...1 input level from the mic, sampled from the same tap that
+    /// feeds recognition — used to animate the HUD waveform. Not calibrated
+    /// audio metering, just "how loud is it right now" for a visual effect.
+    @Published var audioLevel: Float = 0
 
     /// When the transcript last changed — used to detect "user stopped
     /// talking" for continuous listening (no mic button needed) instead of
@@ -48,7 +52,15 @@ final class SpeechRecognizer: NSObject, ObservableObject {
 
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
+            // .voiceChat (not .measurement): we now also run this while Jarvis
+            // is talking, to detect the user barging in (see
+            // ConversationEngine.startInterruptWatch) — .voiceChat is Apple's
+            // mode for simultaneous play+record and enables some amount of
+            // built-in echo/noise handling that plain .measurement doesn't,
+            // on top of the transcript-comparison heuristic that does the
+            // real work of telling "Jarvis's own echoed voice" apart from
+            // "the user actually talking".
+            try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.duckOthers, .defaultToSpeaker, .allowBluetooth])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
 
             let newRequest = SFSpeechAudioBufferRecognitionRequest()
@@ -60,6 +72,7 @@ final class SpeechRecognizer: NSObject, ObservableObject {
             inputNode.removeTap(onBus: 0)
             inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
                 self?.request?.append(buffer)
+                self?.updateAudioLevel(from: buffer)
             }
 
             audioEngine.prepare()
@@ -90,6 +103,26 @@ final class SpeechRecognizer: NSObject, ObservableObject {
         request = nil
         task = nil
         isListening = false
+        audioLevel = 0
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    /// Cheap RMS-based level from the raw buffer, normalized to roughly
+    /// 0...1 with a fixed gain — good enough for a visual meter, not for
+    /// anything that needs calibrated dB.
+    private func updateAudioLevel(from buffer: AVAudioPCMBuffer) {
+        guard let channelData = buffer.floatChannelData else { return }
+        let frameCount = Int(buffer.frameLength)
+        guard frameCount > 0 else { return }
+        let samples = channelData[0]
+        var sum: Float = 0
+        for i in 0..<frameCount {
+            sum += samples[i] * samples[i]
+        }
+        let rms = sqrt(sum / Float(frameCount))
+        let level = min(1, rms * 12) // empirical gain so normal speech reaches ~0.5-1.0
+        DispatchQueue.main.async { [weak self] in
+            self?.audioLevel = level
+        }
     }
 }

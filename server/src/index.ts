@@ -9,6 +9,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 import { createJarvisToolServer } from "./jarvisTools.js";
 import { loadProfile } from "./profile.js";
 import { loadFamilyReferencePhotos } from "./family.js";
+import { savePendingResult, takePendingResult } from "./backgroundJobs.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const AUTH_TOKEN = process.env.JARVIS_SERVER_TOKEN;
@@ -114,6 +115,24 @@ const httpServer = createServer((_req, res) => {
   res.end("Jarvis server OK\n");
 });
 
+/**
+ * The phone opens a fresh WebSocket per turn, and can disappear mid-turn
+ * (app closed, network drop) — the Claude query itself keeps running to
+ * completion regardless (it's not tied to the socket), so sending the
+ * result back can fail on an already-closed connection. Returns false
+ * instead of throwing so the caller can fall back to persisting the result
+ * for later (see backgroundJobs.ts) rather than losing it.
+ */
+function trySend(ws: WebSocket, payload: Record<string, unknown>): boolean {
+  if (ws.readyState !== ws.OPEN) return false;
+  try {
+    ws.send(JSON.stringify(payload));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const wss = new WebSocketServer({
   server: httpServer,
   verifyClient: (info, callback) => {
@@ -143,7 +162,9 @@ wss.on("connection", (ws: WebSocket) => {
         resolve(`La app no respondió a tiempo ejecutando ${name}.`);
       }, timeoutMs);
       pending.set(id, { resolve, timeout });
-      ws.send(JSON.stringify({ type: "tool_call", id, name, input }));
+      // If the phone's already gone, just let the timeout above resolve
+      // with the "didn't respond in time" fallback instead of throwing.
+      trySend(ws, { type: "tool_call", id, name, input });
     });
   };
 
@@ -155,6 +176,20 @@ wss.on("connection", (ws: WebSocket) => {
       msg = JSON.parse(raw.toString());
     } catch {
       ws.send(JSON.stringify({ type: "error", message: "JSON inválido" }));
+      return;
+    }
+
+    if (msg.type === "check_pending") {
+      // Sent once, right when the app opens (see JarvisServerClient.
+      // checkPendingResult) — if a previous turn finished after the phone
+      // had already disconnected, this is where Jarvis hands you the
+      // answer instead of it being silently lost.
+      const pendingResult = takePendingResult();
+      if (pendingResult) {
+        trySend(ws, { type: "pending_result", text: pendingResult });
+      } else {
+        trySend(ws, { type: "no_pending" });
+      }
       return;
     }
 
@@ -266,20 +301,26 @@ wss.on("connection", (ws: WebSocket) => {
             sessionId = event.session_id;
             saveSessionId(sessionId);
             if (event.subtype === "success") {
-              ws.send(JSON.stringify({ type: "final_answer", text: event.result }));
+              // The query itself already ran to completion regardless of
+              // whether the phone stuck around for it — if the socket's
+              // gone, don't lose the answer, save it for next time the app
+              // opens instead (see check_pending above).
+              if (!trySend(ws, { type: "final_answer", text: event.result })) {
+                savePendingResult(event.result);
+              }
             } else {
-              ws.send(JSON.stringify({
+              trySend(ws, {
                 type: "error",
                 message: `Jarvis no pudo terminar la respuesta (${event.subtype}).`
-              }));
+              });
             }
           }
         }
       } catch (error) {
-        ws.send(JSON.stringify({
+        trySend(ws, {
           type: "error",
           message: error instanceof Error ? error.message : "Error desconocido"
-        }));
+        });
       }
       return;
     }

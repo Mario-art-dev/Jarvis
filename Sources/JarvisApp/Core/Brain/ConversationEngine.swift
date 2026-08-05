@@ -31,10 +31,20 @@ final class ConversationEngine: ObservableObject {
     @Published var showCameraGlance = false
     private var pendingImagePrompt: String?
 
+    /// Owned here (not by the view) so this class can also run it while
+    /// Jarvis is speaking, to detect the user barging in — see
+    /// startInterruptWatch(). The view still binds to it directly for the
+    /// mic button / silence-detection timer.
+    let speech = SpeechRecognizer()
+    let audioPlayer = AudioPlayer()
+
     private let config: AppConfig
     private let toolRegistry = ToolRegistry()
-    private let audioPlayer = AudioPlayer()
     private lazy var serverClient = JarvisServerClient(toolRegistry: toolRegistry)
+
+    private var interruptWatch: AnyCancellable?
+    private var interruptTargetText = ""
+    private var wasInterrupted = false
 
     init(config: AppConfig) {
         self.config = config
@@ -47,6 +57,20 @@ final class ConversationEngine: ObservableObject {
         let greeting = "Buenas, señor. ¿En qué puedo ayudarle?"
         transcript.append(TranscriptEntry(speaker: "Jarvis", text: greeting))
         await speak(greeting)
+        // If the user already jumped in over the greeting (state is
+        // .listening, not .idle — see speak()'s interrupt handling), don't
+        // barge in on top of THAT with a second announcement.
+        guard state == .idle else { return }
+
+        // If something you asked before closing the app finished running
+        // in the meantime (see server/src/backgroundJobs.ts), deliver it
+        // now instead of it sitting there silently done.
+        if let pendingResult = await serverClient.checkPendingResult(config: config),
+           !pendingResult.trimmingCharacters(in: .whitespaces).isEmpty {
+            let announcement = "Por cierto, terminé lo que me pidió antes: \(pendingResult)"
+            transcript.append(TranscriptEntry(speaker: "Jarvis", text: announcement))
+            await speak(announcement)
+        }
     }
 
     func handleUserUtterance(_ text: String) async {
@@ -113,6 +137,8 @@ final class ConversationEngine: ObservableObject {
     /// frozen (stuck on the green "listening" ring) until the app was force
     /// quit and reopened.
     func handleAppBackgrounded() {
+        interruptWatch?.cancel()
+        interruptWatch = nil
         switch state {
         case .listening:
             state = .idle
@@ -161,17 +187,89 @@ final class ConversationEngine: ObservableObject {
 
     private func speak(_ text: String) async {
         state = .speaking
+        wasInterrupted = false
+        interruptTargetText = text
         do {
             let elevenLabs = ElevenLabsClient(apiKey: config.elevenLabsAPIKey, voiceID: config.elevenLabsVoiceID)
             let audioData = try await elevenLabs.synthesizeSpeech(text: text)
+
+            startInterruptWatch()
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                 audioPlayer.play(data: audioData) {
                     continuation.resume()
                 }
             }
+            stopInterruptWatch()
         } catch {
             lastError = error.localizedDescription
+            stopInterruptWatch()
         }
+
+        if wasInterrupted {
+            wasInterrupted = false
+            // Don't cut the user off at whatever they'd said the instant
+            // the interruption was detected — hand off to the normal
+            // listening/silence-detection flow instead, on the SAME
+            // still-running mic session (so the words they interrupted
+            // with stay in speech.transcript instead of being reset), and
+            // let them keep talking until they actually pause.
+            state = .listening
+            return
+        }
+        // Not interrupted: stop the listening session that was only running
+        // for interrupt-detection, so beginListeningIfIdle() starts a clean
+        // one for the user's next utterance instead of reusing a transcript
+        // buffer full of Jarvis's own echoed speech.
+        speech.stopListening()
         state = .idle
+    }
+
+    /// While Jarvis talks, the mic stays on so the user can cut in — but on
+    /// a phone speaker (no headset), that mic also picks up Jarvis's own
+    /// voice bouncing back. Rather than gamble on hardware echo
+    /// cancellation, this compares whatever the mic hears against the text
+    /// Jarvis is actually saying right now: mostly-overlapping words mean
+    /// it's just hearing itself (ignore); words that don't match what's
+    /// being said mean the user is genuinely talking over him (interrupt).
+    private func startInterruptWatch() {
+        speech.requestAuthorization { [weak self] granted in
+            guard let self, granted, !self.speech.isListening else { return }
+            self.speech.startListening()
+        }
+        interruptWatch = speech.$transcript
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] heard in
+                self?.evaluatePossibleInterruption(heard)
+            }
+    }
+
+    private func stopInterruptWatch() {
+        interruptWatch?.cancel()
+        interruptWatch = nil
+    }
+
+    private func evaluatePossibleInterruption(_ heard: String) {
+        guard state == .speaking, !wasInterrupted else { return }
+        let normalizedHeard = normalizeForComparison(heard)
+        let heardWords = normalizedHeard.split(separator: " ").map(String.init)
+        // Ignore short blips (a stray "ah", a cough) — real interruptions
+        // are at least a couple of words.
+        guard heardWords.count >= 2 else { return }
+
+        let targetWords = Set(normalizeForComparison(interruptTargetText).split(separator: " ").map(String.init))
+        let overlapping = heardWords.filter { targetWords.contains($0) }
+        let overlapRatio = Double(overlapping.count) / Double(heardWords.count)
+        // Mostly matches what Jarvis is currently saying — that's just the
+        // echo of his own voice, not the user talking. Only treat it as a
+        // real interruption once it clearly diverges.
+        guard overlapRatio < 0.5 else { return }
+
+        wasInterrupted = true
+        audioPlayer.stop()
+    }
+
+    private func normalizeForComparison(_ text: String) -> String {
+        text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

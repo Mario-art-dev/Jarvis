@@ -9,8 +9,18 @@ enum JarvisState {
 
 /// Recreates the circular HUD from the reference image: concentric cyan
 /// rings, tick marks and a pulsing core, animated based on assistant state.
+/// Also draws a small audio-reactive waveform and, while listening, the
+/// live partial transcript — makes it "feel" like Jarvis is actually
+/// hearing/speaking in the moment instead of just showing a static mood.
 struct HUDView: View {
     let state: JarvisState
+    /// Roughly 0...1, current mic input level (while listening) or speaker
+    /// output level (while speaking) — see SpeechRecognizer.audioLevel /
+    /// AudioPlayer.audioLevel. Drives the waveform bars below the ring.
+    var audioLevel: Float = 0
+    /// Partial speech-to-text result, shown under the ring while listening
+    /// so you can see Jarvis is actually picking up what you're saying.
+    var liveTranscript: String = ""
 
     @State private var rotation: Double = 0
     @State private var pulse: CGFloat = 1.0
@@ -23,6 +33,8 @@ struct HUDView: View {
         case .speaking: return Color(red: 0.35, green: 0.9, blue: 1.0)
         }
     }
+
+    private let barMultipliers: [CGFloat] = [0.5, 0.8, 1.05, 1.2, 1.0, 0.75, 0.5]
 
     var body: some View {
         ZStack {
@@ -63,6 +75,21 @@ struct HUDView: View {
                     .shadow(color: accentColor, radius: 6)
             }
             .frame(width: 320, height: 320)
+
+            VStack {
+                Spacer()
+                waveform
+                    .padding(.bottom, 12)
+                if !liveTranscript.isEmpty {
+                    Text(liveTranscript)
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .foregroundColor(.white.opacity(0.85))
+                        .multilineTextAlignment(.center)
+                        .lineLimit(3)
+                        .padding(.horizontal, 32)
+                }
+                Spacer().frame(height: 90)
+            }
         }
         .onAppear {
             withAnimation(.linear(duration: 18).repeatForever(autoreverses: false)) {
@@ -77,6 +104,24 @@ struct HUDView: View {
                 pulse = newState == .idle ? 1.0 : 1.25
             }
         }
+    }
+
+    private var waveform: some View {
+        HStack(spacing: 5) {
+            ForEach(0..<barMultipliers.count, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(accentColor)
+                    .frame(width: 4, height: barHeight(multiplier: barMultipliers[i]))
+                    .animation(.easeOut(duration: 0.08), value: audioLevel)
+            }
+        }
+        .frame(height: 56)
+    }
+
+    private func barHeight(multiplier: CGFloat) -> CGFloat {
+        let minHeight: CGFloat = 5
+        let level = CGFloat(min(max(audioLevel, 0), 1))
+        return minHeight + level * 46 * multiplier
     }
 
     private func tickRing(radius: CGFloat, count: Int, length: CGFloat, lineWidth: CGFloat) -> some View {
@@ -111,5 +156,5 @@ struct HUDView: View {
 }
 
 #Preview {
-    HUDView(state: .listening)
+    HUDView(state: .listening, audioLevel: 0.4, liveTranscript: "qué tiempo hace mañana")
 }

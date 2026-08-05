@@ -295,17 +295,27 @@ teléfono (Back Tap), que es más fiable y no depende del ruido ambiente:
 
 Con la app **abierta y en primer plano**, Jarvis escucha todo el rato sin
 que tengas que tocar nada:
-- Al abrir la app te saluda en voz alta ("Buenas, señor Gimeno...") y
-  empieza a escuchar automáticamente.
+- Al abrir la app te saluda en voz alta ("Buenas, señor...") y empieza a
+  escuchar automáticamente.
 - Cuando dejas de hablar (~1,3 segundos de silencio), envía lo que ha oído,
   te responde, y en cuanto termina de hablar **vuelve a escuchar solo**,
   sin que pulses nada — así puedes seguir la conversación de corrido.
 - Si sales de la app o bloqueas el móvil, deja de escuchar automáticamente
   (no puede seguir en segundo plano, como ya se explicó arriba), y retoma
   al volver a abrirla.
-- El botón del micrófono sigue ahí como control manual: pulsarlo mientras
-  escucha fuerza el envío inmediato sin esperar el silencio; pulsarlo
-  estando parado, lo reactiva a mano.
+- **Puedes cortarle mientras habla** (barge-in): si empiezas a hablar
+  mientras Jarvis está respondiendo, se calla al momento y sigue
+  escuchando lo que le estás diciendo, en vez de tener que esperar a que
+  termine su frase. Como el micrófono del propio móvil capta también su
+  propia voz por el altavoz (no hay cancelación de eco de hardware en este
+  montaje), distingue "se está oyendo a sí mismo" de "el usuario me está
+  hablando" comparando lo que oye con lo que está diciendo en ese momento
+  — si se parece, lo ignora; si no se parece nada, para y escucha. Es una
+  heurística, no perfecta: en un sitio con eco fuerte o si dices algo muy
+  parecido a lo que él está diciendo, puede tardar un poco más en
+  reaccionar. Si en la práctica se corta solo demasiado (falsos positivos)
+  o casi nunca te deja interrumpirle, dímelo con un ejemplo de cuándo pasó
+  y ajusto el umbral.
 
 **Respuesta escrita en vez de hablada:** si en tu frase dices la palabra
 **"escríbeme"** (en cualquier parte, ej. "escríbeme la lista de la compra"),
@@ -430,6 +440,60 @@ reunión"* o *"Jarvis, ¿qué archivos tengo guardados?"*.
 Excel...), y solo dentro de su propia carpeta — no puede crear ni leer
 archivos en otras carpetas de Archivos, iCloud Drive u otras apps, porque
 iOS no da ese acceso a ninguna app de terceros.
+
+## Tareas largas que siguen aunque cierres la app
+
+Si le pides algo que tarda (una búsqueda larga, comparar varias cosas) y
+cierras la app o se corta la conexión antes de que termine, la tarea **sigue
+corriendo en el Mac** de todas formas — la conversación con Claude no
+depende de que el móvil siga conectado, solo de que el servidor esté
+encendido. Si termina mientras no había nadie conectado para recibir la
+respuesta, se guarda; la próxima vez que abras la app, justo después del
+saludo, Jarvis te dice *"por cierto, terminé lo que me pidió antes: ..."* en
+vez de que esa respuesta se pierda sin más.
+
+**Límite honesto:** esto solo cubre tareas que no necesitan el propio
+iPhone para completarse (búsquedas web, tiempo, etc.). Si la tarea incluye
+una herramienta que corre en el teléfono (fotos, calendario, contactos...)
+y te desconectas a mitad, esa parte concreta fallará por no poder alcanzar
+el móvil — igual que ahora, solo que ya no se pierde silenciosamente el
+resto de la respuesta. Tampoco es un aviso push de verdad (el móvil
+bloqueado o con la app cerrada del todo no se entera al instante) — Apple
+exige cuenta de desarrollador de pago para eso; esto es "te lo cuenta en
+cuanto vuelves a abrir la app", que cubre el caso real de "pregunté algo y
+cerré la app mientras esperaba".
+
+## HUD visual: forma de onda y transcripción en vivo
+
+El anillo circular ahora reacciona de verdad al sonido: mientras escucha,
+las barras debajo del anillo se mueven con el nivel del micrófono, y
+mientras habla, con el nivel de su propia voz — y mientras te escucha,
+ves debajo el texto que va entendiendo en tiempo real, según lo vas
+diciendo. Es solo visual (no cambia el comportamiento), pero es lo que
+hace que se sienta como que "está ahí" en vez de una pantalla estática con
+un círculo de color.
+
+## Palabra de activación ("Hey Jarvis") — pendiente
+
+Esto NO está implementado todavía, a propósito. Requiere:
+1. Un motor de detección de palabra clave que sí puede correr en segundo
+   plano de verdad (Speech framework de Apple no puede) — el más viable es
+   **Picovoice Porcupine**, que además ya trae "Jarvis" como palabra clave
+   gratuita de fábrica, sin tener que entrenar nada.
+2. Que te crees una cuenta gratuita en [Picovoice Console](https://console.picovoice.ai/)
+   y generes tu propia "Access Key" — es gratis para uso personal, pero es
+   una cuenta tuya, no algo que yo pueda generarte.
+3. Añadir esa librería como dependencia nueva del proyecto y activar el modo
+   en segundo plano de audio en `project.yml`.
+
+El motivo de dejarlo pendiente en vez de meterlo a ciegas junto con todo lo
+demás: el paso 3 es el único cambio de todo lo que hemos hecho hoy que
+podría **romper la compilación entera** en GitHub Actions si algo no encaja
+bien (una dependencia nueva que no se resuelve como espero), y no tengo
+forma de probarlo aquí antes de que te llegue. Prefiero que lo que ya
+tienes funcionando en el móvil quede confirmado primero. Si quieres seguir
+con esto, créate la cuenta en Picovoice, pásame la Access Key (por Ajustes
+de la app, no aquí) y lo meto en un cambio aparte.
 
 ## Seguridad
 

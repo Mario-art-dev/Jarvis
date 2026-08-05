@@ -92,6 +92,40 @@ final class JarvisServerClient: NSObject {
         }
     }
 
+    /// Asks the server whether a previous turn finished after this phone
+    /// had already disconnected (app closed mid-task, connection dropped)
+    /// — see server/src/backgroundJobs.ts. Called once right after the
+    /// opening greeting so a long-running request you walked away from
+    /// gets delivered as soon as you reopen the app, instead of being lost.
+    /// Returns nil on any failure — this is a nice-to-have, not something
+    /// that should surface as an error to the user.
+    func checkPendingResult(config: AppConfig) async -> String? {
+        guard !config.serverURL.isEmpty, !config.serverToken.isEmpty,
+              let url = URL(string: config.serverURL) else { return nil }
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(config.serverToken)", forHTTPHeaderField: "Authorization")
+
+        let session = URLSession(configuration: .default)
+        let ws = session.webSocketTask(with: request)
+        ws.resume()
+        defer { ws.cancel(with: .normalClosure, reason: nil) }
+
+        do {
+            try await send(["type": "check_pending"], on: ws)
+            let message = try await ws.receive()
+            guard case .string(let jsonString) = message,
+                  let data = jsonString.data(using: .utf8),
+                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  json["type"] as? String == "pending_result" else {
+                return nil
+            }
+            return json["text"] as? String
+        } catch {
+            return nil
+        }
+    }
+
     private func executeTool(name: String, input: [String: Any]) async -> String {
         guard let tool = toolRegistry.tool(named: name) else {
             return "Herramienta desconocida: \(name)"
