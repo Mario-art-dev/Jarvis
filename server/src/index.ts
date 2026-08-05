@@ -10,6 +10,7 @@ import { createJarvisToolServer } from "./jarvisTools.js";
 import { loadProfile } from "./profile.js";
 import { loadFamilyReferencePhotos } from "./family.js";
 import { savePendingResult, takePendingResult } from "./backgroundJobs.js";
+import { synthesizeWithPiper, isPiperConfigured } from "./piper.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const AUTH_TOKEN = process.env.JARVIS_SERVER_TOKEN;
@@ -190,6 +191,15 @@ wss.on("connection", (ws: WebSocket) => {
       return;
     }
 
+    if (msg.type === "synthesize") {
+      // The phone asks for audio before speaking; a null reply just means
+      // "use your own voice instead" (ElevenLabs, then the iPhone's built-in
+      // one), so an unconfigured or broken Piper costs nothing.
+      const audio = await synthesizeWithPiper(String(msg.text ?? ""));
+      trySend(ws, { type: "audio", data: audio });
+      return;
+    }
+
     if (msg.type === "check_pending") {
       // Sent once, right when the app opens (see JarvisServerClient.
       // checkPendingResult) — if a previous turn finished after the phone
@@ -363,4 +373,9 @@ wss.on("connection", (ws: WebSocket) => {
 
 httpServer.listen(PORT, () => {
   console.log(`Jarvis server escuchando en :${PORT}`);
+  console.log(
+    isPiperConfigured()
+      ? "Voz: Piper (local, ilimitada)."
+      : "Voz: ElevenLabs desde el móvil. Para una voz local e ilimitada, ejecuta scripts/install-piper.sh"
+  );
 });

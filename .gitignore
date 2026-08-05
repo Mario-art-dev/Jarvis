@@ -14,6 +14,11 @@ dist/
 .jarvis-session-id
 .jarvis-profile.md
 
+# Piper: binario y modelo de voz descargados por scripts/install-piper.sh.
+# Son cientos de MB y dependen de la arquitectura del Mac — se descargan,
+# no se versionan.
+server/piper/
+
 # Fotos de referencia de la familia (server/family/README.md) — personales,
 # no van al repo.
 server/family/*.jpg

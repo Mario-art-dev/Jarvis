@@ -179,6 +179,47 @@ final class JarvisServerClient: NSObject {
         }
     }
 
+    /// Asks the server to synthesise this text with Piper, if it's set up
+    /// there (see server/src/piper.ts). Returns nil whenever it isn't, or
+    /// anything fails — the caller then falls back to ElevenLabs and, past
+    /// that, the iPhone's own voice, so an unconfigured or broken Piper is
+    /// never the difference between Jarvis speaking and not.
+    func synthesize(_ text: String, config: AppConfig) async -> Data? {
+        guard !config.serverURL.isEmpty, !config.serverToken.isEmpty,
+              let url = URL(string: config.serverURL) else { return nil }
+
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(config.serverToken)", forHTTPHeaderField: "Authorization")
+
+        let session = URLSession(configuration: .default)
+        let ws = session.webSocketTask(with: request)
+        ws.resume()
+        defer { ws.cancel(with: .normalClosure, reason: nil) }
+
+        // Local synthesis of a normal reply takes well under this; the point
+        // is only to avoid stalling speech behind a wedged connection.
+        let watchdog = Task {
+            try? await Task.sleep(nanoseconds: 30_000_000_000)
+            ws.cancel(with: .goingAway, reason: nil)
+        }
+        defer { watchdog.cancel() }
+
+        do {
+            try await send(["type": "synthesize", "text": text], on: ws)
+            let message = try await ws.receive()
+            guard case .string(let jsonString) = message,
+                  let data = jsonString.data(using: .utf8),
+                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  json["type"] as? String == "audio",
+                  let base64 = json["data"] as? String else {
+                return nil
+            }
+            return Data(base64Encoded: base64)
+        } catch {
+            return nil
+        }
+    }
+
     private func executeTool(name: String, input: [String: Any]) async -> String {
         guard let tool = toolRegistry.tool(named: name) else {
             return "Herramienta desconocida: \(name)"

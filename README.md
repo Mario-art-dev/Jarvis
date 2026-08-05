@@ -97,6 +97,33 @@ iPhone**: suena bastante más robótica, pero es gratis, ilimitada y
 funciona sin internet. Te avisa una sola vez de por qué ha cambiado, no
 en cada respuesta.
 
+### Voz local con Piper (gratis, ilimitada, sin cuenta)
+
+Si no quieres depender de los créditos de ElevenLabs, puedes generar la voz
+en tu propio Mac con [Piper](https://github.com/rhasspy/piper): es gratis,
+ilimitado, funciona sin internet y el audio llega al iPhone por la misma
+conexión que ya usa Jarvis, así que **se escucha igual en el móvil**.
+
+```bash
+cd Jarvis/server
+./scripts/install-piper.sh
+```
+
+Descarga Piper y una voz en español, **comprueba que arranca en tu Mac** y
+rellena `server/.env` solo. Reinicia el servidor: al arrancar debe poner
+*"Voz: Piper (local, ilimitada)"*.
+
+**Es opcional y no puede romper nada.** Si tu Mac es viejo y el binario no
+arranca, el script te lo dice y no toca la configuración: Jarvis sigue con
+ElevenLabs y con la voz del iPhone como hasta ahora. Lo mismo si Piper falla
+en marcha — cada respuesta cae hacia atrás sola.
+
+Calidad: mejor que las voces de Apple, algo por debajo de la voz clonada de
+ElevenLabs. Hay más voces en español en
+[huggingface.co/rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices/tree/main/es/es_ES)
+— para cambiarla, descarga el `.onnx` y su `.json` y apunta `PIPER_VOICE` al
+nuevo archivo.
+
 **Mejorar la voz de respaldo, gratis:** por defecto iOS usa una voz
 "compacta" bastante robótica, pero tiene voces mucho mejores que solo hay
 que descargar una vez — en el iPhone, **Ajustes → Accesibilidad →
