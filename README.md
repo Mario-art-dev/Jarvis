@@ -97,22 +97,41 @@ iPhone**: suena bastante más robótica, pero es gratis, ilimitada y
 funciona sin internet. Te avisa una sola vez de por qué ha cambiado, no
 en cada respuesta.
 
-### Voz local del Mac (gratis, ilimitada, sin cuenta) — activa sola
+### Edge TTS: voces neuronales gratis, sin cuenta — activa sola
 
-Para no depender de los créditos, Jarvis genera la voz **en el propio Mac**
-con el comando `say` que viene dentro de macOS. Es gratis, ilimitado, no
-necesita cuenta ni internet, y el audio llega al iPhone por la misma
-conexión que ya usa Jarvis, así que **se escucha igual en el móvil**.
+Jarvis genera la voz con las voces neuronales de **Microsoft Edge** (el
+mismo motor que usa el navegador para "Leer en voz alta"): suenan mucho más
+humanas que la voz del Mac o la del iPhone, y no piden cuenta, API key ni
+tarjeta. Solo necesita que el Mac tenga internet.
 
-**No hay que instalar nada ni configurar nada.** Si el Mac tiene alguna voz
-en español (los Macs en español la traen), Jarvis la usa automáticamente y
-ElevenLabs queda solo como respaldo. Al arrancar el servidor debe poner:
+**No hay que configurar nada.** Al arrancar, el servidor prueba que
+funciona y lo dice:
 
 ```
-Voz: la del propio Mac, "Mónica" (local, ilimitada, sin créditos).
+Voz: Edge TTS, "es-ES-AlvaroNeural" (gratis, sin cuenta, necesita internet).
 ```
 
-**Elegir otra voz o escucharlas:**
+**Elegir otra voz o escucharlas** (necesitas internet para esto también):
+
+```bash
+cd Jarvis/server
+node scripts/setup-edge-voice.mjs --list                  # ver todas las de español
+node scripts/setup-edge-voice.mjs es-ES-ElviraNeural       # escucharla y dejarla fija
+```
+
+**El único pero:** no es una API oficial de Microsoft, es un truco que
+imita lo que hace el navegador (librería
+[`msedge-tts`](https://github.com/Migushthe2nd/MsEdgeTTS)). Funciona bien y
+la usa mucha gente, pero en teoría podría dejar de funcionar sin avisar si
+Microsoft lo bloquea. Si eso pasa, o si prefieres no depender de ello,
+`EDGE_TTS_DISABLED=1` en `.env` lo apaga y Jarvis pasa a la voz del Mac sin
+que tengas que cambiar nada más.
+
+### Voz local del Mac (gratis, ilimitada, sin cuenta ni internet)
+
+Si Edge TTS falla o lo desactivas, Jarvis genera la voz **en el propio
+Mac** con el comando `say`: gratis, ilimitado, y no necesita internet ni
+cuenta — a cambio de sonar algo más robótica.
 
 ```bash
 cd Jarvis/server
@@ -128,9 +147,16 @@ Accesibilidad → Contenido hablado → Voz del sistema → Personalizar…**, m
 una en español que ponga *(Mejorada)* o *(Premium)* y acepta. Se llaman
 igual, así que Jarvis la coge sola al reiniciar el servidor.
 
-Orden en que se elige la voz de cada respuesta: **Mac → ElevenLabs → voz del
-iPhone**. Si algo falla en cualquier punto, la siguiente toma el relevo sin
-que la app se quede muda.
+### Orden completo
+
+**Edge TTS → Mac → ElevenLabs → voz del iPhone.** Si algo falla en
+cualquier punto, la siguiente toma el relevo sin que la app se quede muda.
+(Piper tendría preferencia sobre todas si algún día se arregla su paquete
+para Mac — ver más abajo.)
+
+Si prefieres saltarte todo esto y que Jarvis hable siempre con una voz del
+propio iPhone (sin depender del Mac ni de ninguna cuenta), actívalo en la
+app: **Ajustes → "Usar solo la voz del iPhone"**.
 
 <details>
 <summary>Piper (mejor calidad, pero hoy no funciona en Mac)</summary>

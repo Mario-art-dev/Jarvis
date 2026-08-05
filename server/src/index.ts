@@ -11,6 +11,7 @@ import { loadProfile } from "./profile.js";
 import { loadFamilyReferencePhotos } from "./family.js";
 import { savePendingResult, takePendingResult } from "./backgroundJobs.js";
 import { synthesizeWithPiper, isPiperConfigured } from "./piper.js";
+import { synthesizeWithEdgeTts, isEdgeTtsEnabled, edgeTtsVoiceName } from "./edgeTts.js";
 import { synthesizeWithSay, macVoiceName } from "./macVoice.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -197,10 +198,14 @@ wss.on("connection", (ws: WebSocket) => {
       // "use your own voice instead" (ElevenLabs, then the iPhone's built-in
       // one), so a missing or broken local voice costs nothing.
       const text = String(msg.text ?? "");
-      // Piper sounds better when it works, but its macOS build is broken
-      // upstream; `say` is part of macOS and always there. Try the good one,
-      // fall through to the reliable one.
-      const audio = (await synthesizeWithPiper(text)) ?? (await synthesizeWithSay(text));
+      // Best quality first, most reliable last: Piper (offline, but its
+      // macOS build is broken upstream so this is normally null), then Edge
+      // TTS (free neural voices, needs internet and an unofficial trick that
+      // could stop working), then the Mac's own `say` (always there).
+      const audio =
+        (await synthesizeWithPiper(text)) ??
+        (await synthesizeWithEdgeTts(text)) ??
+        (await synthesizeWithSay(text));
       trySend(ws, { type: "audio", data: audio });
       return;
     }
@@ -381,6 +386,20 @@ httpServer.listen(PORT, async () => {
   if (isPiperConfigured()) {
     console.log("Voz: Piper (local, ilimitada).");
     return;
+  }
+  if (isEdgeTtsEnabled()) {
+    // Whether this actually works depends on Microsoft's servers being
+    // reachable and not having blocked the trick this month — worth a real
+    // check at boot rather than assuming, so the log never claims a voice
+    // that then silently fails on every single reply.
+    if (await synthesizeWithEdgeTts("Hola")) {
+      console.log(
+        `Voz: Edge TTS, "${edgeTtsVoiceName()}" (gratis, sin cuenta, necesita internet). ` +
+          "Si falla más adelante, cae en la voz del Mac y luego en ElevenLabs/iPhone. Para desactivarla: EDGE_TTS_DISABLED=1 en .env"
+      );
+      return;
+    }
+    console.log("Edge TTS no responde ahora mismo; se usará la voz del Mac mientras tanto.");
   }
   const voice = await macVoiceName();
   console.log(
