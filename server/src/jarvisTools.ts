@@ -64,12 +64,12 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
       ),
       tool(
         "calendar",
-        "Crea o lista eventos del calendario del iPhone. action=create requiere title y start_iso8601.",
+        "Crea o consulta eventos del calendario del iPhone. Para crear: action=create con title y start_iso8601. Para consultar: list_today (hoy), list_week (próximos 7 días), list_month (próximos 30 días), o list_range con start_iso8601/end_iso8601 para cualquier otro periodo (ej. un mes concreto, el fin de semana que viene).",
         {
-          action: z.enum(["create", "list_today"]),
+          action: z.enum(["create", "list_today", "list_week", "list_month", "list_range"]),
           title: z.string().optional(),
-          start_iso8601: z.string().optional(),
-          end_iso8601: z.string().optional()
+          start_iso8601: z.string().optional().describe("Para create: cuándo empieza el evento. Para list_range: desde cuándo consultar."),
+          end_iso8601: z.string().optional().describe("Para create: cuándo acaba (por defecto 1h después). Para list_range: hasta cuándo consultar.")
         },
         async (args) => ({
           content: [{ type: "text", text: await callOnPhone("calendar", args) }]
