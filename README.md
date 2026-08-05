@@ -311,6 +311,14 @@ que tengas que tocar nada:
   usuario interrumpiendo" a partir de cualquier cosa que oiga era poco
   fiable — con una palabra exacta no hay ambigüedad posible: ningún eco de
   su propia voz va a transcribirse como "calla" por casualidad.
+- **Botón de mutear, para cortar la espera del silencio.** Mientras te está
+  escuchando aparece un botón redondo (icono de micro tachado) abajo en
+  pantalla. Por defecto no hace falta tocarlo — Jarvis manda lo que has
+  dicho en cuanto detecta ~1,3s de silencio, como siempre — pero si lo
+  pulsas, corta la escucha al instante y pasa a pensar la respuesta ya
+  mismo, sin esperar esa pausa. Útil con ruido de fondo (que a veces
+  resetea el contador de silencio) o simplemente cuando no quieres
+  esperar. Si no has dicho nada todavía, tocarlo no hace nada.
 
 **Respuesta escrita en vez de hablada:** si en tu frase dices la palabra
 **"escríbeme"** (en cualquier parte, ej. "escríbeme la lista de la compra"),

@@ -56,7 +56,13 @@ struct ConversationView: View {
                     }
                 }
                 Spacer()
+                if engine.state == .listening {
+                    muteButton
+                        .padding(.bottom, 36)
+                        .transition(.opacity.combined(with: .scale))
+                }
             }
+            .animation(.easeInOut(duration: 0.2), value: engine.state == .listening)
 
             if let written = engine.writtenResponse {
                 WrittenResponseView(text: written) {
@@ -216,6 +222,26 @@ struct ConversationView: View {
             }
             engine.state = .listening
             speech.startListening()
+        }
+    }
+
+    /// Only shown while actually listening — tapping it ends the turn right
+    /// now instead of waiting for the usual silence detection, for when you
+    /// want Jarvis to start thinking immediately (ej. background noise
+    /// keeps resetting the silence timer, or you just don't want to wait
+    /// out the pause).
+    private var muteButton: some View {
+        Button {
+            guard !speech.transcript.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+            finishListeningAndSubmit()
+        } label: {
+            Image(systemName: "mic.slash.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundColor(.black)
+                .frame(width: 60, height: 60)
+                .background(Color.white.opacity(0.9))
+                .clipShape(Circle())
+                .shadow(color: .black.opacity(0.3), radius: 8)
         }
     }
 
