@@ -52,6 +52,8 @@ final class ConversationEngine: ObservableObject {
     private var interruptWatch: AnyCancellable?
     private var interruptTargetText = ""
     private var wasInterrupted = false
+    private var speakingStartedAt = Date()
+    private var consecutiveMismatches = 0
 
     init(config: AppConfig) {
         self.config = config
@@ -220,6 +222,8 @@ final class ConversationEngine: ObservableObject {
         state = .speaking
         wasInterrupted = false
         interruptTargetText = text
+        speakingStartedAt = Date()
+        consecutiveMismatches = 0
         do {
             let elevenLabs = ElevenLabsClient(apiKey: config.elevenLabsAPIKey, voiceID: config.elevenLabsVoiceID)
             let audioData = try await elevenLabs.synthesizeSpeech(text: text)
@@ -281,27 +285,48 @@ final class ConversationEngine: ObservableObject {
 
     private func evaluatePossibleInterruption(_ heard: String) {
         guard state == .speaking, !wasInterrupted else { return }
-        let normalizedHeard = normalizeForComparison(heard)
-        let heardWords = normalizedHeard.split(separator: " ").map(String.init)
+        // Give the echo a moment to actually start before judging it — the
+        // first fraction of a second of transcript tends to be the noisiest
+        // (recognizer still "warming up"), and this also stops Jarvis from
+        // ever cutting off his own opening word or two.
+        guard Date().timeIntervalSince(speakingStartedAt) > 1.2 else { return }
+
+        let heardWords = normalizeForComparison(heard).split(separator: " ").map(String.init)
         // Ignore short blips (a stray "ah", a cough) — real interruptions
-        // are at least a couple of words.
-        guard heardWords.count >= 2 else { return }
+        // are at least a few words.
+        guard heardWords.count >= 3 else { return }
 
         let targetWords = Set(normalizeForComparison(interruptTargetText).split(separator: " ").map(String.init))
         let overlapping = heardWords.filter { targetWords.contains($0) }
         let overlapRatio = Double(overlapping.count) / Double(heardWords.count)
         // Mostly matches what Jarvis is currently saying — that's just the
         // echo of his own voice, not the user talking. Only treat it as a
-        // real interruption once it clearly diverges.
-        guard overlapRatio < 0.5 else { return }
+        // real interruption once it clearly diverges, AND it has to diverge
+        // twice in a row — echo transcription is noisy enough that a single
+        // bad reading isn't enough to trust on its own.
+        guard overlapRatio < 0.35 else {
+            consecutiveMismatches = 0
+            return
+        }
+        consecutiveMismatches += 1
+        guard consecutiveMismatches >= 2 else { return }
 
         wasInterrupted = true
         audioPlayer.stop()
     }
 
+    /// Strips accents/case AND punctuation before comparing — SFSpeechRecognizer
+    /// transcripts never include punctuation, so without stripping it here
+    /// too, "¿en" (from the target text) would never match "en" (from what
+    /// the mic heard) even for a perfect echo, making every single reply
+    /// look like a mismatch and falsely trigger an "interruption" on Jarvis's
+    /// own voice. This is what caused the greeting to keep cutting itself
+    /// off mid-sentence.
     private func normalizeForComparison(_ text: String) -> String {
-        text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let folded = text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        let keep = CharacterSet.alphanumerics.union(.whitespaces)
+        let scrubbed = String(folded.unicodeScalars.map { keep.contains($0) ? Character($0) : " " })
+        return scrubbed.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Buys extra run time from iOS for a turn that's mid-flight when the
