@@ -94,6 +94,8 @@ targets:
           - capcut
           - canva
           - clock-alarm
+          - clock
+          - mobiletimer
           - weather
           - liftoff
           - rider

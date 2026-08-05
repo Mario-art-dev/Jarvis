@@ -82,6 +82,9 @@ final class ConversationEngine: ObservableObject {
     /// Its own recognizer, entirely separate from `speech` — see
     /// InterruptListener for why that isolation matters.
     private let interruptListener = InterruptListener()
+    /// Fallback voice for when ElevenLabs can't synthesise (see speak).
+    private let systemVoice = SystemVoice()
+    private var hasReportedVoiceFallback = false
 
     private let config: AppConfig
     private let toolRegistry = ToolRegistry()
@@ -291,6 +294,7 @@ final class ConversationEngine: ObservableObject {
             // .idle itself right after.
             interruptListener.stop()
             audioPlayer.stop()
+            systemVoice.stop()
         case .thinking:
             // A request is in flight and you've walked away — keep the app
             // alive so it can actually notify you the moment the answer
@@ -366,9 +370,30 @@ final class ConversationEngine: ObservableObject {
             interruptListener.stop()
         } catch {
             interruptListener.stop()
-            lastError = error.localizedDescription
+            // Never go mute over this. ElevenLabs failing (nearly always a
+            // used-up monthly quota) used to leave Jarvis silent with only a
+            // raw API error on screen, which looks exactly like the whole app
+            // being broken — every tool had actually run, there was just
+            // nothing to say so out loud.
+            reportVoiceFallbackOnce(error)
+            await systemVoice.speak(text)
         }
         state = .idle
+    }
+
+    /// Surfaces *why* the voice changed, but only the first time per launch:
+    /// the reason is worth knowing once, and worth not being nagged about on
+    /// every single reply for the rest of the month.
+    private func reportVoiceFallbackOnce(_ error: Error) {
+        guard !hasReportedVoiceFallback else { return }
+        hasReportedVoiceFallback = true
+
+        let detail = error.localizedDescription
+        if detail.contains("quota_exceeded") || detail.contains("quota") {
+            lastError = "Se han agotado los créditos mensuales de tu cuenta de ElevenLabs, así que Jarvis seguirá hablando con la voz del iPhone (suena peor, pero es gratis e ilimitada). Se renuevan cada mes; si quieres la voz buena antes, hay que ampliar el plan en elevenlabs.io."
+        } else {
+            lastError = "No he podido usar la voz de ElevenLabs (\(detail)). Sigo con la voz del iPhone mientras tanto."
+        }
     }
 
     /// Buys extra run time from iOS for a turn that's mid-flight when the

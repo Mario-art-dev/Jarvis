@@ -194,7 +194,15 @@ struct AppLauncherTool: JarvisTool {
         case "canva":
             return [URL(string: "canva://")].compactMap { $0 }
         case "clock":
-            return [URL(string: "clock-alarm://")].compactMap { $0 }
+            // Apple publishes no URL scheme for the Clock app; these are the
+            // undocumented ones that have been reported to work on some iOS
+            // versions. Tried in order, and it fails safely if none do —
+            // Clock genuinely may not be openable from another app at all.
+            return [
+                URL(string: "clock-alarm://"),
+                URL(string: "clock://"),
+                URL(string: "mobiletimer://")
+            ].compactMap { $0 }
         case "weather":
             return [URL(string: "weather://")].compactMap { $0 }
         case "liftoff_gym":

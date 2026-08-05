@@ -88,6 +88,20 @@ servidor) porque son plataformas distintas: la definición del servidor solo
 describe el nombre/parámetros para que Claude sepa cuándo llamarla; quien
 la ejecuta de verdad es siempre el iPhone.
 
+## Si se acaban los créditos de ElevenLabs
+
+El plan gratuito de ElevenLabs da 10.000 créditos al mes (≈10.000
+caracteres hablados). Cuando se agotan, la API devuelve un error
+`quota_exceeded` y **Jarvis pasa automáticamente a la voz del propio
+iPhone**: suena bastante más robótica, pero es gratis, ilimitada y
+funciona sin internet. Te avisa una sola vez de por qué ha cambiado, no
+en cada respuesta.
+
+Los créditos se renuevan cada mes. Si quieres recuperar la voz buena
+antes, hay que ampliar el plan en elevenlabs.io. Para gastar menos, lo que
+más cuenta es la longitud de las respuestas — Jarvis ya tiene instrucciones
+de ser breve.
+
 ## 1. Crear tu voz en ElevenLabs
 
 1. Crea cuenta en https://elevenlabs.io (tiene plan gratuito limitado).
