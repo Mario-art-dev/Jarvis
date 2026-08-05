@@ -160,15 +160,23 @@ struct ConversationView: View {
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
                 engine.isForeground = true
+                // iOS can interrupt/kill the mic's audio session for
+                // reasons that never reach our own stop/start calls (a
+                // phone call, Siri, another app's audio, the app being
+                // suspended outright) — when that happens, speech.isListening
+                // stays stuck at true even though nothing is actually
+                // running anymore, and beginListeningIfIdle()'s own
+                // `!speech.isListening` guard then silently blocks it from
+                // ever trying again. This showed up as Jarvis sitting on
+                // the idle ring forever after returning from another app,
+                // fixed only by force-quitting. Unconditionally stopping
+                // first guarantees a clean slate no matter what happened
+                // while backgrounded — stopping an already-stopped
+                // recognizer is a harmless no-op.
+                speech.stopListening()
                 beginListeningIfIdle()
             } else {
                 engine.isForeground = false
-                // handleAppBackgrounded() stops the mic/speaker itself, in
-                // the order that matters (see its doc comment) — don't
-                // also call speech.stopListening() here first, that was
-                // deactivating the shared audio session out from under an
-                // in-progress AVAudioPlayer and freezing Jarvis until a
-                // force quit.
                 engine.handleAppBackgrounded()
             }
         }
