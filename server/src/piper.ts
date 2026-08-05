@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { readFile, unlink } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 
 /**
@@ -51,7 +51,20 @@ export async function synthesizeWithPiper(text: string): Promise<string | null> 
 
 function runPiper(text: string, outputPath: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const piper = spawn(PIPER_PATH!, ["--model", PIPER_VOICE!, "--output_file", outputPath]);
+    // Piper ships libespeak-ng and espeak-ng-data alongside its binary, but
+    // the macOS build's @rpath doesn't resolve them on its own — it fails
+    // with "Library not loaded: @rpath/libespeak-ng.1.dylib". Pointing the
+    // dynamic linker at the binary's own folder (and running from there, so
+    // espeak-ng-data is found too) is what makes it start.
+    const piperDir = dirname(PIPER_PATH!);
+    const piper = spawn(PIPER_PATH!, ["--model", PIPER_VOICE!, "--output_file", outputPath], {
+      cwd: piperDir,
+      env: {
+        ...process.env,
+        DYLD_LIBRARY_PATH: piperDir,
+        DYLD_FALLBACK_LIBRARY_PATH: piperDir
+      }
+    });
 
     let stderr = "";
     piper.stderr.on("data", (chunk) => {

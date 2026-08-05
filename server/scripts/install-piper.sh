@@ -126,17 +126,41 @@ echo "==> Comprobando que Piper arranca en este Mac..."
 xattr -dr com.apple.quarantine "$PIPER_DIR" 2>/dev/null || true
 
 TEST_WAV="$(mktemp -t jarvis-piper).wav"
-if ! echo "Hola, soy Jarvis." | "$PIPER_BIN" --model "$PIPER_DIR/$VOICE_ONNX" --output_file "$TEST_WAV" 2>/tmp/piper-test-error.txt; then
+PIPER_BIN_DIR="$(dirname "$PIPER_BIN")"
+
+# Piper trae libespeak-ng y espeak-ng-data junto al ejecutable, pero su
+# @rpath no los resuelve solo en macOS ("Library not loaded:
+# @rpath/libespeak-ng.1.dylib"). Hay que señalarle su propia carpeta, y
+# ejecutarlo desde ahí para que encuentre también espeak-ng-data.
+if ! ( cd "$PIPER_BIN_DIR" && echo "Hola, soy Jarvis." | \
+       DYLD_LIBRARY_PATH="$PIPER_BIN_DIR" DYLD_FALLBACK_LIBRARY_PATH="$PIPER_BIN_DIR" \
+       "$PIPER_BIN" --model "$PIPER_DIR/$VOICE_ONNX" --output_file "$TEST_WAV" ) 2>/tmp/piper-test-error.txt; then
   echo ""
   echo "ERROR: Piper no arranca en este Mac. Detalle:" >&2
   cat /tmp/piper-test-error.txt >&2
-  echo ""
-  echo "Suele pasar en macOS antiguos, donde el binario precompilado pide una"
-  echo "versión más nueva del sistema. No se ha cambiado nada: Jarvis sigue"
-  echo "usando ElevenLabs y la voz del iPhone como hasta ahora."
+  echo "" >&2
+  if grep -q "Symbol not found\|not supported\|minimum.*version" /tmp/piper-test-error.txt; then
+    echo "El binario precompilado pide una versión de macOS más nueva que la" >&2
+    echo "de este Mac. No hay arreglo sencillo: habría que compilar Piper" >&2
+    echo "desde el código fuente." >&2
+  else
+    echo "Pásame este error y lo miramos — puede tener arreglo." >&2
+  fi
+  echo "" >&2
+  echo "No se ha cambiado nada: Jarvis sigue usando ElevenLabs y la voz del" >&2
+  echo "iPhone como hasta ahora." >&2
   rm -f "$TEST_WAV"
   exit 1
 fi
+
+# Comprobación de verdad: que el WAV tenga contenido, no solo que el
+# proceso saliera con código 0.
+if [ ! -s "$TEST_WAV" ]; then
+  echo "ERROR: Piper arrancó pero no generó audio. No se ha cambiado nada." >&2
+  rm -f "$TEST_WAV"
+  exit 1
+fi
+echo "==> Prueba de voz correcta ($(wc -c < "$TEST_WAV" | tr -d ' ') bytes de audio)."
 rm -f "$TEST_WAV"
 
 set_env_var() {
