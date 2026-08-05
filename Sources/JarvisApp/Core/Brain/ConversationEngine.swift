@@ -39,7 +39,7 @@ final class ConversationEngine: ObservableObject {
     /// the server, so it works instantly even before the server/login is
     /// ready and doesn't cost a Claude turn just to say hello.
     func greet() async {
-        let greeting = "Buenas, señor Gimeno. ¿En qué puedo ayudarle?"
+        let greeting = "Buenas, señor. ¿En qué puedo ayudarle?"
         transcript.append(TranscriptEntry(speaker: "Jarvis", text: greeting))
         await speak(greeting)
     }
