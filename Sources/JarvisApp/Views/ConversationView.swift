@@ -23,7 +23,7 @@ struct ConversationView: View {
     /// "the user finished talking" and send it off — continuous listening
     /// has no button press to mark the end of an utterance, so silence is
     /// the only signal available.
-    private let silenceThreshold: TimeInterval = 1.3
+    private let silenceThreshold: TimeInterval = 3.0
     private let silenceCheckTimer = Timer.publish(every: 0.3, on: .main, in: .common).autoconnect()
 
     /// When `engine.state` last changed — drives the watchdog below. A

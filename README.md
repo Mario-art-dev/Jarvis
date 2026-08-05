@@ -297,7 +297,7 @@ Con la app **abierta y en primer plano**, Jarvis escucha todo el rato sin
 que tengas que tocar nada:
 - Al abrir la app te saluda en voz alta ("Buenas, señor...") y empieza a
   escuchar automáticamente.
-- Cuando dejas de hablar (~1,3 segundos de silencio), envía lo que ha oído,
+- Cuando dejas de hablar (3 segundos de silencio), envía lo que ha oído,
   te responde, y en cuanto termina de hablar **vuelve a escuchar solo**,
   sin que pulses nada — así puedes seguir la conversación de corrido.
 - Si sales de la app o bloqueas el móvil, deja de escuchar automáticamente
