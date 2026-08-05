@@ -303,14 +303,14 @@ que tengas que tocar nada:
 - Si sales de la app o bloqueas el móvil, deja de escuchar automáticamente
   (no puede seguir en segundo plano, como ya se explicó arriba), y retoma
   al volver a abrirla.
-- Jarvis siempre termina su frase mientras responde — no se corta solo a
-  mitad. Se probó una versión que intentaba detectar cuándo le
-  interrumpías para callarse al momento, pero como el micrófono del propio
-  móvil capta también su propia voz por el altavoz (no hay cancelación de
-  eco de hardware en este montaje) y encima compartir la sesión de audio
-  entre micrófono y altavoz a la vez resultó ser bastante frágil en iOS,
-  se dejó fuera — mejor un Jarvis fiable que uno que a veces se queda
-  congelado.
+- **Di "calla" para que se pare al momento.** Es la única palabra que lo
+  interrumpe — hablar por encima sin decirla no lo corta, termina su frase
+  igual. Se eligió una única palabra fija a propósito: el micrófono capta
+  también la propia voz de Jarvis por el altavoz (no hay cancelación de eco
+  de hardware en este montaje), así que intentar adivinar "esto es el
+  usuario interrumpiendo" a partir de cualquier cosa que oiga era poco
+  fiable — con una palabra exacta no hay ambigüedad posible: ningún eco de
+  su propia voz va a transcribirse como "calla" por casualidad.
 
 **Respuesta escrita en vez de hablada:** si en tu frase dices la palabra
 **"escríbeme"** (en cualquier parte, ej. "escríbeme la lista de la compra"),

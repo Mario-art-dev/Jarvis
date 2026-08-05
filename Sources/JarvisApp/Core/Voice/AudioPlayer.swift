@@ -15,17 +15,10 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     func play(data: Data, onFinish: (() -> Void)? = nil) {
         do {
-            let session = AVAudioSession.sharedInstance()
-            // Plain .playback, not shared with the mic: an earlier version
-            // ran SpeechRecognizer's mic tap at the same time (to support
-            // barge-in / "calla"), sharing one .playAndRecord session
-            // between two independent audio components — reactivating that
-            // shared session from either side while the other was mid-use
-            // caused several distinct freezes (playback silently
-            // interrupted without firing its completion, hanging speak()
-            // forever). Simpler and reliable beats interruptible and flaky.
-            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
-            try session.setActive(true)
+            // Shares one audio session with SpeechRecognizer (so the mic can
+            // hear "calla" while this plays) — see SharedAudioSession for
+            // why this doesn't just call setCategory/setActive directly.
+            try SharedAudioSession.activateForSimultaneousPlayAndRecord()
 
             player = try AVAudioPlayer(data: data)
             player?.delegate = self
