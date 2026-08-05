@@ -3,10 +3,9 @@ import SwiftUI
 struct ConversationView: View {
     @StateObject private var config = AppConfig()
     @StateObject private var engine: ConversationEngine
-    /// Both live inside `engine` now (so it can run the mic while Jarvis is
-    /// speaking too, for barge-in — see ConversationEngine.speak). Bound
-    /// here as ObservedObject, not owned, purely so this view redraws when
-    /// their own @Published properties change (transcript, audioLevel...).
+    /// Both live inside `engine`, not owned here — bound as ObservedObject
+    /// purely so this view redraws when their own @Published properties
+    /// change (transcript, audioLevel...).
     @ObservedObject private var speech: SpeechRecognizer
     @ObservedObject private var audioPlayer: AudioPlayer
     @State private var showSettings = false
@@ -26,6 +25,16 @@ struct ConversationView: View {
     /// the only signal available.
     private let silenceThreshold: TimeInterval = 1.3
     private let silenceCheckTimer = Timer.publish(every: 0.3, on: .main, in: .common).autoconnect()
+
+    /// When `engine.state` last changed — drives the watchdog below. A
+    /// handful of distinct, hard-to-fully-reproduce-remotely bugs have each
+    /// left Jarvis stuck on a non-idle state for good (audio session
+    /// interruptions, a recognizer that stays unavailable longer than
+    /// expected, network calls with no clean way to detect they've gone
+    /// stale from the UI side...). Rather than keep chasing each one
+    /// individually, this is a blanket safety net: whatever the cause, don't
+    /// stay stuck for more than a bounded time.
+    @State private var stateEnteredAt = Date()
 
     init() {
         let sharedConfig = AppConfig()
@@ -181,6 +190,7 @@ struct ConversationView: View {
             }
         }
         .onChange(of: engine.state) { newState in
+            stateEnteredAt = Date()
             // Loop back to listening automatically once Jarvis finishes
             // speaking — that's the "no mic button needed" behavior.
             if newState == .idle {
@@ -200,13 +210,30 @@ struct ConversationView: View {
             engine.state = .idle
         }
         .onReceive(silenceCheckTimer) { _ in
-            // Only fires for the normal "waiting for the user" listening
-            // state — while Jarvis is speaking the mic is running too (for
-            // barge-in), but that path is driven by ConversationEngine's own
-            // interrupt-comparison logic, not silence detection.
             guard engine.state == .listening, speech.isListening, !speech.transcript.isEmpty else { return }
             guard speech.secondsSinceLastTranscriptChange() >= silenceThreshold else { return }
             finishListeningAndSubmit()
+        }
+        .onReceive(silenceCheckTimer) { _ in
+            // Watchdog: force a full recovery if Jarvis has sat on a
+            // non-idle state for too long without progressing — a bound
+            // generous enough that it never interrupts something genuinely
+            // in progress (.thinking already has its own 90s network
+            // watchdog in JarvisServerClient; this is a backstop above
+            // that), but short enough that "frozen for minutes until you
+            // force-quit" simply can't happen anymore, whatever the cause.
+            guard scenePhase == .active, engine.state != .idle else { return }
+            let maxDuration: TimeInterval
+            switch engine.state {
+            case .thinking: maxDuration = 100 // above JarvisServerClient's own 90s network watchdog
+            case .speaking: maxDuration = 60  // generous for even a long spoken answer
+            case .listening: maxDuration = 45 // generous for a long ramble with no pause
+            case .idle: maxDuration = .infinity // unreachable, guarded above
+            }
+            guard Date().timeIntervalSince(stateEnteredAt) > maxDuration else { return }
+            speech.stopListening()
+            audioPlayer.stop()
+            engine.state = .idle
         }
         .alert("Error", isPresented: .constant(engine.lastError != nil)) {
             Button("OK") { engine.lastError = nil }
