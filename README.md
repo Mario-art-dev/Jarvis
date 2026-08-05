@@ -373,43 +373,33 @@ Con los dos creados, podrás decirle cosas como *"Créame una nota con la receta
 
 **Aviso honesto:** es la parte más "artesanal" de todo el proyecto — depende de que los Atajos estén construidos exactamente así, y los nombres de las acciones en Atajos pueden variar ligeramente según tu versión de iOS. Si al probarlo no funciona, mándame una captura de cómo tienes montado el Atajo y lo ajustamos juntos. Cada llamada puede tardar unos segundos de más porque pasa por la app Atajos por el camino.
 
-## Alarmas y temporizadores (requiere configurar 2 Atajos más)
+## Alarmas y temporizadores (funcionan directo, sin Atajos)
 
-Mismo motivo que con Notas: Apple no da a ninguna app de terceros acceso
-directo a la app Reloj, así que Jarvis pasa por dos Atajos que construyes
-tú una sola vez.
+Dile *"ponme una alarma a las 7 y media"* o *"ponme un temporizador de 10
+minutos"* y ya está — **no hace falta configurar nada**. También puede
+decirte qué tienes puesto (*"¿qué alarmas tengo?"*) y cancelarlo todo
+(*"cancela las alarmas"*).
 
-**Aviso honesto sobre los límites:** Jarvis puede **crear alarmas nuevas**
-y **poner temporizadores nuevos** por voz. Eso es todo. Apple **no permite
-a ninguna app** (ni siquiera a Atajos) **leer las alarmas que ya tienes
-puestas**, **decir cuánto tiempo queda de un temporizador en marcha**, ni
-**iniciar o controlar el cronómetro**. No es una limitación de este
-proyecto — es que esa información y esos controles no están disponibles
-para nadie fuera de la propia app Reloj de Apple.
+**Aviso honesto e importante:** Apple no da a ninguna app de terceros
+acceso a su app Reloj, así que estas **no son alarmas del Reloj**: son
+notificaciones de la propia app Jarvis. En la práctica eso significa que:
 
-**Atajo 1 — "Jarvis Crear Alarma"**
+- **No atraviesan el modo silencio ni el modo concentración.** Si tienes el
+  móvil en silencio, no sonarán.
+- **Suenan una sola vez**, como cualquier notificación, en vez de sonar
+  hasta que las apagues.
+- **No aparecen en la app Reloj.**
 
-Jarvis manda la hora y el nombre juntos en un solo texto, separados por `|`
-(ej. `07:30|Gimnasio`), porque Atajos solo permite pasar un texto por
-llamada. Por eso hace falta separarlos dentro del propio Atajo:
+Sirven perfectamente para *"avísame en 10 minutos"* o *"recuérdame a las
+17:00"*, pero **para despertarte por la mañana pon también la alarma de
+verdad en la app Reloj**. Jarvis te lo recordará él mismo si le pides una
+alarma para dormir.
 
-1. Nuevo atajo, nómbralo exactamente: **`Jarvis Crear Alarma`**.
-2. Añade la acción **"Dividir texto"** (Split Text). Configúrala para dividir **"Entrada de atajo"** usando un separador personalizado: **`|`**.
-3. Añade la acción **"Añadir alarma"** (o "Crear alarma", según tu versión).
-   - En el campo de la **hora**, usa **"Seleccionar variable"** → el resultado de "Dividir texto" → elige el **primer elemento** (índice 1).
-   - En el campo del **nombre/título** de la alarma, haz lo mismo pero eligiendo el **segundo elemento** (índice 2).
-4. Añade una última acción **"Detener y generar"** con el resultado puesto a texto fijo, por ejemplo `Alarma creada`.
-5. Desactiva **"Preguntar antes de ejecutar"** en los ajustes del atajo.
-
-Si al insertar la variable de "Dividir texto" en un campo no te deja elegir directamente "primer/segundo elemento", añade dos acciones **"Obtener elemento de lista"** antes del paso 3 (una para el índice 1, otra para el índice 2) y usa esos resultados en su lugar.
-
-**Atajo 2 — "Jarvis Iniciar Temporizador"**
-1. Nuevo atajo, nómbralo exactamente: **`Jarvis Iniciar Temporizador`**.
-2. Añade la acción **"Iniciar temporizador"**, con la duración puesta en **minutos** y usando la variable **"Entrada de atajo"** como cantidad.
-3. Añade una última acción **"Detener y generar"** con el resultado a texto fijo, por ejemplo `Temporizador iniciado`.
-4. Desactiva **"Preguntar antes de ejecutar"**.
-
-Con los dos creados, podrás decir cosas como *"Jarvis, ponme una alarma a las 7 y media"* o *"Jarvis, ponme un temporizador de 10 minutos"*. Si le pides que te diga qué alarmas tienes o cuánto queda de un temporizador, te dirá que no puede — es la limitación de Apple explicada arriba, no un fallo.
+Antes esto se hacía con dos Atajos que había que construir a mano, y
+fallaba en silencio si no existían o si el nombre no coincidía exactamente.
+Se cambió a notificaciones propias porque funciona al momento y sin
+configurar nada, y de paso permite consultarlas y cancelarlas — cosa que
+con los Atajos era imposible.
 
 ## Enviar fotos o archivos para que Jarvis los vea
 

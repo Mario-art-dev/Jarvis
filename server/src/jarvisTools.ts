@@ -130,9 +130,9 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
       ),
       tool(
         "clock_action",
-        "Crea una alarma nueva o inicia un temporizador de cuenta atrás en el iPhone. Requiere que el usuario tenga configurados los Atajos \"Jarvis Crear Alarma\" y \"Jarvis Iniciar Temporizador\". No puede leer alarmas existentes, decir cuánto queda de un temporizador, ni controlar el cronómetro — Apple no lo permite a ninguna app, ni siquiera a Atajos.",
+        "Crea alarmas y temporizadores en el iPhone, y consulta (list_pending) o cancela (cancel_all) los que haya puestos. No requiere ninguna configuración previa. Son notificaciones de la propia app Jarvis: suenan como una notificación normal, así que NO atraviesan el modo silencio ni el modo concentración, suenan una vez en vez de hasta que las apagues, y no aparecen en la app Reloj de Apple. Si el usuario necesita una alarma para despertarse de verdad, dile que la ponga también en la app Reloj.",
         {
-          action: z.enum(["create_alarm", "start_timer"]),
+          action: z.enum(["create_alarm", "start_timer", "list_pending", "cancel_all"]),
           time_hhmm: z.string().optional().describe("Solo para create_alarm: hora en formato 24h HH:mm, ej. '07:30'."),
           label: z.string().optional().describe("Solo para create_alarm: nombre de la alarma, si el usuario pidió uno."),
           minutes: z.number().int().optional().describe("Solo para start_timer: minutos de cuenta atrás.")
