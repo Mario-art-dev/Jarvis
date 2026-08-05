@@ -153,8 +153,10 @@ struct ConversationView: View {
         }
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
+                engine.isForeground = true
                 beginListeningIfIdle()
             } else {
+                engine.isForeground = false
                 speech.stopListening()
                 engine.handleAppBackgrounded()
             }

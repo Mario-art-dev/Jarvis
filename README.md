@@ -441,27 +441,43 @@ Excel...), y solo dentro de su propia carpeta — no puede crear ni leer
 archivos en otras carpetas de Archivos, iCloud Drive u otras apps, porque
 iOS no da ese acceso a ninguna app de terceros.
 
-## Tareas largas que siguen aunque cierres la app
+## Tareas largas que siguen aunque te salgas de la app
 
-Si le pides algo que tarda (una búsqueda larga, comparar varias cosas) y
-cierras la app o se corta la conexión antes de que termine, la tarea **sigue
-corriendo en el Mac** de todas formas — la conversación con Claude no
-depende de que el móvil siga conectado, solo de que el servidor esté
-encendido. Si termina mientras no había nadie conectado para recibir la
-respuesta, se guarda; la próxima vez que abras la app, justo después del
-saludo, Jarvis te dice *"por cierto, terminé lo que me pidió antes: ..."* en
-vez de que esa respuesta se pierda sin más.
+Le pides algo (ej. "búscame una receta de tarta de queso") y sales de la
+app — sin cerrarla del todo, solo te vas a otra cosa o bloqueas el móvil —
+Jarvis sigue pensando. Cuando termina:
 
-**Límite honesto:** esto solo cubre tareas que no necesitan el propio
-iPhone para completarse (búsquedas web, tiempo, etc.). Si la tarea incluye
-una herramienta que corre en el teléfono (fotos, calendario, contactos...)
-y te desconectas a mitad, esa parte concreta fallará por no poder alcanzar
-el móvil — igual que ahora, solo que ya no se pierde silenciosamente el
-resto de la respuesta. Tampoco es un aviso push de verdad (el móvil
-bloqueado o con la app cerrada del todo no se entera al instante) — Apple
-exige cuenta de desarrollador de pago para eso; esto es "te lo cuenta en
-cuanto vuelves a abrir la app", que cubre el caso real de "pregunté algo y
-cerré la app mientras esperaba".
+- **Si termina mientras el móvil sigue teniendo algo de tiempo en segundo
+  plano** (iOS le da a la app un margen — al menos unos 30 segundos, a
+  veces más), recibes una **notificación de verdad** con la respuesta: *"tu
+  receta está lista"*, con el texto. Esto usa notificaciones locales, no
+  necesita cuenta de pago de Apple ni nada especial — solo la primera vez
+  te pedirá permiso para enviarte notificaciones.
+- **Si tarda más que ese margen**, iOS acaba congelando la app de todas
+  formas (nadie puede evitar eso sin la app en primer plano) — pero la
+  pregunta ya sigue corriendo en el Mac de forma independiente del móvil,
+  así que no se pierde: se guarda, y en cuanto vuelvas a abrir Jarvis, justo
+  después del saludo, te dice *"por cierto, terminé lo que me pidió antes:
+  ..."* en vez de que esa respuesta desaparezca sin más.
+
+Entre las dos cosas, prácticamente nunca deberías perder una respuesta por
+haberte ido de la app — la diferencia es solo si te enteras al momento (con
+notificación) o al volver a abrirla.
+
+**Límites honestos:**
+- Esto solo cubre tareas que no necesitan el propio iPhone para completarse
+  (búsquedas web, tiempo, etc.). Si la tarea incluye una herramienta que
+  corre en el teléfono (fotos, calendario, contactos...) y te desconectas a
+  mitad, esa parte concreta fallará por no poder alcanzar el móvil — igual
+  que ahora, solo que ya no se pierde silenciosamente el resto de la
+  respuesta.
+- Si **cierras la app del todo** (deslizar hacia arriba para quitarla, no
+  solo salir de ella), no hay margen de segundo plano en absoluto — va
+  directa al camino de "te lo cuento en cuanto la abras de nuevo".
+- No es un push remoto real (Apple exige cuenta de desarrollador de pago
+  para eso) — es notificación local disparada por la propia app mientras
+  aún tiene un pelín de tiempo de ejecución, que es distinto pero cubre el
+  caso real que pediste.
 
 ## HUD visual: forma de onda y transcripción en vivo
 

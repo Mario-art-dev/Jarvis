@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import UIKit
+import UserNotifications
 
 struct TranscriptEntry: Identifiable {
     let id = UUID()
@@ -29,7 +31,12 @@ final class ConversationEngine: ObservableObject {
     /// skipping the source picker, so it feels like a glance instead of a
     /// deliberate "attach a file" flow.
     @Published var showCameraGlance = false
+    /// Kept in sync by the view from scenePhase — lets a turn that finishes
+    /// while the user has stepped away notify instead of trying to speak
+    /// into a screen nobody's looking at. See handleUserUtterance.
+    @Published var isForeground = true
     private var pendingImagePrompt: String?
+    private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
 
     /// Owned here (not by the view) so this class can also run it while
     /// Jarvis is speaking, to detect the user barging in — see
@@ -54,6 +61,11 @@ final class ConversationEngine: ObservableObject {
     /// the server, so it works instantly even before the server/login is
     /// ready and doesn't cost a Claude turn just to say hello.
     func greet() async {
+        // Fire-and-forget: has to happen while the app is in the foreground
+        // to actually show the system prompt, so ask early rather than the
+        // first time a background turn tries to use it.
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+
         let greeting = "Buenas, señor. ¿En qué puedo ayudarle?"
         transcript.append(TranscriptEntry(speaker: "Jarvis", text: greeting))
         await speak(greeting)
@@ -92,16 +104,27 @@ final class ConversationEngine: ObservableObject {
         let wantsWrittenAnswer = containsWriteTrigger(text)
 
         state = .thinking
+        beginBackgroundTask()
         do {
             let finalText = try await serverClient.ask(text, config: config)
+            endBackgroundTask()
             transcript.append(TranscriptEntry(speaker: "Jarvis", text: finalText))
-            if wantsWrittenAnswer {
+            if !isForeground {
+                // Stepped away while this was running — can't speak into a
+                // screen nobody's looking at, so this is the notification
+                // from the "impress the family" list: "tu receta está
+                // lista" instead of silence.
+                notifyCompletion(finalText)
+                if wantsWrittenAnswer { writtenResponse = finalText }
+                state = .idle
+            } else if wantsWrittenAnswer {
                 writtenResponse = finalText
                 state = .idle
             } else {
                 await speak(finalText)
             }
         } catch {
+            endBackgroundTask()
             lastError = error.localizedDescription
             state = .idle
         }
@@ -115,11 +138,19 @@ final class ConversationEngine: ObservableObject {
         guard !attachments.isEmpty else { return }
 
         state = .thinking
+        beginBackgroundTask()
         do {
             let finalText = try await serverClient.ask(text, images: attachments, config: config)
+            endBackgroundTask()
             transcript.append(TranscriptEntry(speaker: "Jarvis", text: finalText))
-            await speak(finalText)
+            if !isForeground {
+                notifyCompletion(finalText)
+                state = .idle
+            } else {
+                await speak(finalText)
+            }
         } catch {
+            endBackgroundTask()
             lastError = error.localizedDescription
             state = .idle
         }
@@ -271,5 +302,40 @@ final class ConversationEngine: ObservableObject {
     private func normalizeForComparison(_ text: String) -> String {
         text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Buys extra run time from iOS for a turn that's mid-flight when the
+    /// user backgrounds the app (steps away without force-quitting) —
+    /// without this, standard background suspension would cut the network
+    /// request off within seconds. Apple guarantees at least ~30s; often
+    /// more, but never indefinitely — there's no way around that short of a
+    /// paid Developer account's remote push, which this project doesn't
+    /// have. If a turn does outlast the window, the connection drops and
+    /// server/src/backgroundJobs.ts's pending-result fallback (see
+    /// ConversationEngine.greet) delivers it next time the app reopens
+    /// instead of losing it.
+    private func beginBackgroundTask() {
+        guard backgroundTaskID == .invalid else { return }
+        backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "JarvisTurn") { [weak self] in
+            self?.endBackgroundTask()
+        }
+    }
+
+    private func endBackgroundTask() {
+        guard backgroundTaskID != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundTaskID)
+        backgroundTaskID = .invalid
+    }
+
+    /// Delivered only when a turn finishes while the app isn't in the
+    /// foreground (see the `!isForeground` branches above) — the one case
+    /// where speaking the answer out loud wouldn't reach anyone.
+    private func notifyCompletion(_ text: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "Jarvis"
+        content.body = text.count > 180 ? String(text.prefix(180)) + "…" : text
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request)
     }
 }
