@@ -289,6 +289,13 @@ wss.on("connection", (ws: WebSocket) => {
               "mcp__jarvis__files_content",
               "mcp__jarvis__remember_fact"
             ],
+            // Haiku instead of the CLI's default (Sonnet) — noticeably
+            // faster to respond, at the cost of thinking a bit less deeply
+            // on complex multi-step comparisons. Trade explicitly requested
+            // in exchange for lower latency; if answers start feeling
+            // shallow on harder questions, drop this back out (or switch to
+            // "claude-sonnet-5") to prioritize quality over speed again.
+            model: "claude-haiku-4-5-20251001",
             permissionMode: "bypassPermissions",
             allowDangerouslySkipPermissions: true,
             // Default is up to 10-15 retries on a failed API call, which on

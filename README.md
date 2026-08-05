@@ -518,6 +518,25 @@ tienes funcionando en el móvil quede confirmado primero. Si quieres seguir
 con esto, créate la cuenta en Picovoice, pásame la Access Key (por Ajustes
 de la app, no aquí) y lo meto en un cambio aparte.
 
+## Velocidad de respuesta
+
+Jarvis usa el modelo **Haiku** de Claude (en vez de Sonnet, el que usa
+Claude Code por defecto) — responde notablemente más rápido, a cambio de
+pensar un poco menos a fondo en preguntas complejas de varios pasos
+(comparar varias opciones, investigaciones elaboradas). Fue una decisión
+explícita priorizando velocidad. Si notas que se queda corto en preguntas
+difíciles y prefieres que piense mejor aunque tarde más, cambia
+`model: "claude-haiku-4-5-20251001"` por `model: "claude-sonnet-5"` en
+`server/src/index.ts` (dentro de las opciones de `query(...)`).
+
+La voz (ElevenLabs) ya usa `eleven_flash_v2_5`, su modelo de menor latencia.
+Aparte del modelo de Claude, otro factor que puede alargar las respuestas
+con el tiempo: la conversación con Claude se guarda de forma indefinida
+(para que recuerde turnos recientes) y crece con el uso — si notas que se
+vuelve más lento tras muchos días de uso, borrar `server/.jarvis-session-id`
+y reiniciar el servidor empieza una conversación nueva (los datos guardados
+con "recuérdame..." no se pierden, viven aparte en `.jarvis-profile.md`).
+
 ## Seguridad
 
 - Las claves de ElevenLabs y el token del servidor se guardan en el
