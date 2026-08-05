@@ -1,4 +1,15 @@
+import { webcrypto } from "node:crypto";
 import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
+
+// msedge-tts assumes the Web Crypto API is available as the global `crypto`,
+// which Node only provides unflagged from v19 onward. An older Node — exactly
+// what an old Mac kept around for compatibility is likely to have — throws
+// "crypto is not defined" the moment this tries to synthesise anything.
+// Polyfilling it here fixes that for any Node version without requiring
+// anyone to upgrade Node just for the voice.
+if (!(globalThis as { crypto?: unknown }).crypto) {
+  (globalThis as { crypto?: unknown }).crypto = webcrypto;
+}
 
 /**
  * Text-to-speech with Microsoft Edge's "Read aloud" voices, via the same
