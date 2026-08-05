@@ -34,7 +34,7 @@ final class SystemVoice: NSObject, AVSpeechSynthesizerDelegate {
             }
 
             let utterance = AVSpeechUtterance(string: text)
-            utterance.voice = AVSpeechSynthesisVoice(language: "es-ES")
+            utterance.voice = Self.bestSpanishVoice()
             // Slightly quicker than default, to match the pace the ElevenLabs
             // voice is configured for.
             utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 1.05
@@ -45,6 +45,33 @@ final class SystemVoice: NSObject, AVSpeechSynthesizerDelegate {
     func stop() {
         synthesizer.stopSpeaking(at: .immediate)
         finish()
+    }
+
+    /// Picks the best Spanish voice actually installed, rather than whatever
+    /// `AVSpeechSynthesisVoice(language:)` defaults to — that's the compact
+    /// voice, the robotic one people think of as "the iPhone voice".
+    ///
+    /// iOS ships far better Enhanced/Premium voices, but only once the user
+    /// downloads them (Ajustes → Accesibilidad → Contenido hablado → Voces).
+    /// Preferring them here means that download alone noticeably improves how
+    /// Jarvis sounds, with no code or account involved. Falls back through
+    /// quality tiers, and to any Spanish variant if es-ES isn't present.
+    private static func bestSpanishVoice() -> AVSpeechSynthesisVoice? {
+        let spanish = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("es") }
+        guard !spanish.isEmpty else { return AVSpeechSynthesisVoice(language: "es-ES") }
+
+        func rank(_ voice: AVSpeechSynthesisVoice) -> Int {
+            let quality: Int
+            switch voice.quality {
+            case .premium: quality = 3
+            case .enhanced: quality = 2
+            default: quality = 1
+            }
+            // Same quality, prefer peninsular Spanish over other variants.
+            return quality * 2 + (voice.language == "es-ES" ? 1 : 0)
+        }
+
+        return spanish.max { rank($0) < rank($1) } ?? AVSpeechSynthesisVoice(language: "es-ES")
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {

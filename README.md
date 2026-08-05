@@ -97,6 +97,14 @@ iPhone**: suena bastante más robótica, pero es gratis, ilimitada y
 funciona sin internet. Te avisa una sola vez de por qué ha cambiado, no
 en cada respuesta.
 
+**Mejorar la voz de respaldo, gratis:** por defecto iOS usa una voz
+"compacta" bastante robótica, pero tiene voces mucho mejores que solo hay
+que descargar una vez — en el iPhone, **Ajustes → Accesibilidad →
+Contenido hablado → Voces → Español**, y baja una marcada como *Mejorada*
+o *Premium* (ej. Mónica). Jarvis elige automáticamente la mejor que tengas
+instalada, así que con solo descargarla ya suena bastante mejor, sin
+tocar nada más.
+
 Los créditos se renuevan cada mes. Si quieres recuperar la voz buena
 antes, hay que ampliar el plan en elevenlabs.io. Para gastar menos, lo que
 más cuenta es la longitud de las respuestas — Jarvis ya tiene instrucciones
