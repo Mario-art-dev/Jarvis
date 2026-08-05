@@ -144,6 +144,7 @@ struct ConversationView: View {
                 beginListeningIfIdle()
             } else {
                 speech.stopListening()
+                engine.handleAppBackgrounded()
             }
         }
         .onChange(of: engine.state) { newState in

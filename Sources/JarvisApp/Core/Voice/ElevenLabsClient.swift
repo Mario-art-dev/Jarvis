@@ -47,7 +47,12 @@ struct ElevenLabsClient {
                 "stability": 0.45,
                 "similarity_boost": 0.85,
                 "style": 0.3,
-                "use_speaker_boost": true
+                "use_speaker_boost": true,
+                // 1.0 es el ritmo normal de la voz clonada; súbelo un poco
+                // (máximo permitido: 1.2) para que suene más ágil en vez de
+                // pausado — el usuario pidió que hablara "más rápido y más
+                // fluido", sin tocar el timbre de la voz en sí.
+                "speed": 1.1
             ]
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)

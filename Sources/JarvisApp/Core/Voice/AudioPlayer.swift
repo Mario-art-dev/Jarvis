@@ -25,13 +25,23 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
         }
     }
 
+    /// Stops playback and, crucially, still fires `onFinish` — unlike the
+    /// natural-completion path, calling `player.stop()` alone does NOT
+    /// invoke `audioPlayerDidFinishPlaying`, so without this a caller
+    /// awaiting the completion (see ConversationEngine.speak) would hang
+    /// forever whenever playback is cut short (ej. app backgrounded).
     func stop() {
         player?.stop()
         isPlaying = false
+        let finish = onFinish
+        onFinish = nil
+        finish?()
     }
 
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         isPlaying = false
-        onFinish?()
+        let finish = onFinish
+        onFinish = nil
+        finish?()
     }
 }

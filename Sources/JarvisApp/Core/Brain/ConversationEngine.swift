@@ -105,6 +105,27 @@ final class ConversationEngine: ObservableObject {
         pendingImagePrompt = nil
     }
 
+    /// Called when the app leaves the foreground (backgrounded, another app
+    /// opened, phone locked). The mic and speaker both get torn down by iOS
+    /// at that point, but `state` doesn't reset on its own — left stuck at
+    /// `.listening` or `.speaking`, `beginListeningIfIdle()`'s `state ==
+    /// .idle` guard blocks forever on return, which is what made Jarvis look
+    /// frozen (stuck on the green "listening" ring) until the app was force
+    /// quit and reopened.
+    func handleAppBackgrounded() {
+        switch state {
+        case .listening:
+            state = .idle
+        case .speaking:
+            // audioPlayer.stop() now fires the pending completion too (see
+            // AudioPlayer.stop), so this unblocks speak()'s continuation and
+            // it sets state = .idle itself right after.
+            audioPlayer.stop()
+        case .idle, .thinking:
+            break
+        }
+    }
+
     /// Accent/case-insensitive match so "escríbeme", "Escribeme", etc. all
     /// trigger written mode regardless of how Speech transcribed it.
     private func containsWriteTrigger(_ text: String) -> Bool {
@@ -132,7 +153,8 @@ final class ConversationEngine: ObservableObject {
         let phrases = [
             "mira esto", "mirame esto", "que ves", "que es esto",
             "echa un vistazo", "echale un vistazo", "hechale un vistazo",
-            "reconoces esto", "reconoces a", "quien soy", "sabes quien soy"
+            "reconoces esto", "reconoces a", "quien soy", "sabes quien soy",
+            "abre la camara", "abre camara", "abre camaras"
         ]
         return phrases.contains { normalized.contains($0) }
     }
