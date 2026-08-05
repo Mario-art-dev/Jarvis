@@ -47,6 +47,10 @@ final class ConversationEngine: ObservableObject {
     /// the silence-detection timer and live HUD level/transcript.
     let speech = SpeechRecognizer()
     let audioPlayer = AudioPlayer()
+    /// Only ever active while backgrounded with a request in flight — see
+    /// BackgroundKeepAlive for why, and why it can't collide with the mic
+    /// or with spoken replies.
+    private let keepAlive = BackgroundKeepAlive()
 
     private let config: AppConfig
     private let toolRegistry = ToolRegistry()
@@ -125,6 +129,7 @@ final class ConversationEngine: ObservableObject {
         do {
             let finalText = try await serverClient.ask(text, config: config)
             endBackgroundTask()
+            keepAlive.stop()
             awaitingLongTask = false
             transcript.append(TranscriptEntry(speaker: "Jarvis", text: finalText))
             if !isForeground {
@@ -153,6 +158,7 @@ final class ConversationEngine: ObservableObject {
     /// flag the UI can act on, rather than the red error alert every other
     /// failure deserves.
     private func handleTurnFailure(_ error: Error) {
+        keepAlive.stop()
         if let serverError = error as? ServerError, case .timedOut = serverError {
             awaitingLongTask = true
             let note = "Esto está llevando un rato. Sigo trabajando en ello — te aviso en cuanto lo tenga."
@@ -175,6 +181,7 @@ final class ConversationEngine: ObservableObject {
         do {
             let finalText = try await serverClient.ask(text, images: attachments, config: config)
             endBackgroundTask()
+            keepAlive.stop()
             awaitingLongTask = false
             transcript.append(TranscriptEntry(speaker: "Jarvis", text: finalText))
             if !isForeground {
@@ -202,6 +209,7 @@ final class ConversationEngine: ObservableObject {
     /// deliberately left alone here — see JarvisServerClient's timeout for
     /// how that case now resolves instead of hanging forever too.
     func handleAppBackgrounded() {
+        isForeground = false
         switch state {
         case .listening:
             speech.stopListening()
@@ -211,9 +219,23 @@ final class ConversationEngine: ObservableObject {
             // this unblocks speak()'s continuation and it sets state =
             // .idle itself right after.
             audioPlayer.stop()
-        case .idle, .thinking:
+        case .thinking:
+            // A request is in flight and you've walked away — keep the app
+            // alive so it can actually notify you the moment the answer
+            // lands, instead of being suspended and only telling you next
+            // time you open it. See BackgroundKeepAlive.
+            keepAlive.start()
+        case .idle:
             break
         }
+    }
+
+    /// Counterpart to handleAppBackgrounded — drops the keep-alive as soon
+    /// as it isn't needed, so it never holds audio (or battery) while
+    /// you're actually looking at the app.
+    func handleAppForegrounded() {
+        isForeground = true
+        keepAlive.stop()
     }
 
     /// Accent/case-insensitive match so "escríbeme", "Escribeme", etc. all
@@ -290,11 +312,15 @@ final class ConversationEngine: ObservableObject {
 
     /// Delivered only when a turn finishes while the app isn't in the
     /// foreground (see the `!isForeground` branches above) — the one case
-    /// where speaking the answer out loud wouldn't reach anyone.
+    /// where speaking the answer out loud wouldn't reach anyone. Leads with
+    /// "ya está listo" rather than just dumping the answer, since a long
+    /// one gets truncated here anyway and the point is to tell you it's
+    /// worth coming back in.
     private func notifyCompletion(_ text: String) {
         let content = UNMutableNotificationContent()
-        content.title = "Jarvis"
-        content.body = text.count > 180 ? String(text.prefix(180)) + "…" : text
+        content.title = "Jarvis ya tiene tu respuesta"
+        let preview = text.count > 160 ? String(text.prefix(160)) + "…" : text
+        content.body = "\(preview)\n\nAbre Jarvis para verlo entero."
         content.sound = .default
         let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)

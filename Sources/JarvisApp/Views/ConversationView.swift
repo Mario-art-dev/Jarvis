@@ -173,7 +173,7 @@ struct ConversationView: View {
         }
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
-                engine.isForeground = true
+                engine.handleAppForegrounded()
                 // iOS can interrupt/kill the mic's audio session for
                 // reasons that never reach our own stop/start calls (a
                 // phone call, Siri, another app's audio, the app being
@@ -198,7 +198,6 @@ struct ConversationView: View {
                     beginListeningIfIdle()
                 }
             } else {
-                engine.isForeground = false
                 engine.handleAppBackgrounded()
             }
         }

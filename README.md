@@ -454,24 +454,25 @@ Le pides algo (ej. "búscame una receta de tarta de queso") y sales de la
 app — sin cerrarla del todo, solo te vas a otra cosa o bloqueas el móvil —
 Jarvis sigue pensando. Cuando termina:
 
-- **Si termina mientras el móvil sigue teniendo algo de tiempo en segundo
-  plano** (iOS le da a la app un margen — al menos unos 30 segundos, a
-  veces más), recibes una **notificación de verdad** con la respuesta: *"tu
-  receta está lista"*, con el texto. Esto usa notificaciones locales, no
-  necesita cuenta de pago de Apple ni nada especial — solo la primera vez
-  te pedirá permiso para enviarte notificaciones.
-- **Si tarda más que ese margen**, iOS acaba congelando la app de todas
-  formas (nadie puede evitar eso sin la app en primer plano) — pero la
-  pregunta ya sigue corriendo en el Mac de forma independiente del móvil,
-  así que no se pierde: se guarda, y **en cuanto vuelvas a entrar en la
-  app** (no hace falta que la cierres y la abras de nuevo — basta con
-  volver a ella) te dice *"ya tengo lo que me pidió: ..."*. Si la respuesta
-  es larga (un libro, por ejemplo), aparece en pantalla en vez de leerse
-  en voz alta.
+**Recibes una notificación en cuanto termine**, aunque estés en otra app o
+con el móvil bloqueado: *"Jarvis ya tiene tu respuesta"*, con un adelanto
+del texto. Entras en la app y ahí lo tienes entero (si es largo, como un
+libro, sale en pantalla en vez de leerse en voz alta).
 
-Entre las dos cosas, prácticamente nunca deberías perder una respuesta por
-haberte ido de la app — la diferencia es solo si te enteras al momento (con
-notificación) o al volver a ella.
+Normalmente iOS suspende una app a los ~30 segundos de salirte, y una app
+suspendida no puede avisarte de nada. La excepción es una app que esté
+reproduciendo audio, así que mientras Jarvis está pensando y tú estás
+fuera, reproduce silencio de fondo para seguir viva y poder avisarte de
+verdad cuando acabe. Se activa **solo** en ese momento concreto (fuera de
+la app + con una petición en marcha) y se apaga en cuanto termina o
+vuelves, así que no está gastando batería el resto del tiempo. Como no
+suena nada y no interrumpe tu música, ni te enteras.
+
+**Si aun así se pierde el aviso** (iOS puede cerrar la app del todo si
+necesita memoria, o si la cierras tú deslizando hacia arriba), la
+respuesta no se pierde: sigue guardada en el Mac y **en cuanto vuelvas a
+entrar en la app** te dice *"ya tengo lo que me pidió: ..."*. No hace
+falta cerrarla y abrirla de nuevo, basta con volver a ella.
 
 **Botón "Continuar":** si en algún momento Jarvis se queda parado sin
 escuchar (el círculo en reposo y sin reaccionar), aparece abajo un botón
@@ -493,12 +494,13 @@ cualquiera de las dos vías de arriba.
   que ahora, solo que ya no se pierde silenciosamente el resto de la
   respuesta.
 - Si **cierras la app del todo** (deslizar hacia arriba para quitarla, no
-  solo salir de ella), no hay margen de segundo plano en absoluto — va
-  directa al camino de "te lo cuento en cuanto la abras de nuevo".
+  solo salir de ella), no hay segundo plano que valga — va directa al
+  camino de "te lo cuento en cuanto la abras de nuevo".
 - No es un push remoto real (Apple exige cuenta de desarrollador de pago
-  para eso) — es notificación local disparada por la propia app mientras
-  aún tiene un pelín de tiempo de ejecución, que es distinto pero cubre el
-  caso real que pediste.
+  para eso) — es una notificación local que dispara la propia app, que se
+  mantiene viva con el truco del audio silencioso explicado arriba. En la
+  práctica hace lo mismo, pero depende de que iOS no cierre la app por su
+  cuenta.
 
 ## HUD visual: forma de onda y transcripción en vivo
 
