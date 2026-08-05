@@ -21,7 +21,7 @@ struct AppLauncherTool: JarvisTool {
             "target": [
                 "type": "string",
                 "enum": [
-                    "maps", "google_maps", "mail", "messages", "phone", "facetime", "camera",
+                    "maps", "google_maps", "mail", "messages", "phone", "facetime", "facetime_audio", "camera",
                     "photos", "calendar", "reminders", "settings", "whatsapp", "spotify",
                     "instagram", "tiktok", "youtube", "gmail", "chrome", "teams",
                     "app_store", "music", "notes", "voice_memos", "files",
@@ -64,6 +64,23 @@ struct AppLauncherTool: JarvisTool {
         return "Abriendo \(target)."
     }
 
+    /// Keeps only digits and a leading +, dropping everything a real
+    /// contact-book number carries that a `tel:` URL can't hold — spaces,
+    /// parentheses, dashes.
+    ///
+    /// This matters more than it looks: `URL(string: "tel:+34 600 123 456")`
+    /// returns nil outright because of the spaces, so the call didn't just
+    /// dial the wrong number, it failed entirely and got reported as "app
+    /// not installed". The system prompt does ask Claude to hand over a
+    /// clean number, but a perfectly ordinary contact was one stray space
+    /// away from breaking the whole thing — worth enforcing here instead of
+    /// hoping.
+    private func phoneNumber(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let digits = trimmed.filter { $0.isNumber }
+        return trimmed.hasPrefix("+") ? "+\(digits)" : digits
+    }
+
     /// Returns candidate URLs in priority order — the first one iOS reports
     /// it can actually open wins. Used for "settings", where the ideal
     /// (opening the general Settings screen) relies on an undocumented
@@ -81,11 +98,13 @@ struct AppLauncherTool: JarvisTool {
         case "mail":
             return [URL(string: "mailto:\(extra)")].compactMap { $0 }
         case "messages":
-            return [URL(string: "sms:\(extra)")].compactMap { $0 }
+            return [URL(string: "sms:\(phoneNumber(extra))")].compactMap { $0 }
         case "phone":
-            return [URL(string: "tel:\(extra)")].compactMap { $0 }
+            return [URL(string: "tel:\(phoneNumber(extra))")].compactMap { $0 }
         case "facetime":
-            return [URL(string: "facetime:\(extra)")].compactMap { $0 }
+            return [URL(string: "facetime:\(phoneNumber(extra))")].compactMap { $0 }
+        case "facetime_audio":
+            return [URL(string: "facetime-audio:\(phoneNumber(extra))")].compactMap { $0 }
         case "camera":
             return [URL(string: "camera://")].compactMap { $0 }
         case "photos":
@@ -102,7 +121,9 @@ struct AppLauncherTool: JarvisTool {
                 URL(string: UIApplication.openSettingsURLString)
             ].compactMap { $0 }
         case "whatsapp":
-            let url = extra.isEmpty ? URL(string: "whatsapp://") : URL(string: "whatsapp://send?phone=\(encoded)")
+            // WhatsApp wants digits only, no leading + and no separators.
+            let digits = phoneNumber(extra).filter { $0.isNumber }
+            let url = digits.isEmpty ? URL(string: "whatsapp://") : URL(string: "whatsapp://send?phone=\(digits)")
             return [url].compactMap { $0 }
         case "spotify":
             return [URL(string: "spotify://")].compactMap { $0 }
