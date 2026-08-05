@@ -22,8 +22,14 @@ struct ElevenLabsClient {
     var apiKey: String
     var voiceID: String
 
-    /// modelID left as "eleven_multilingual_v2" so cloned voices work well in Spanish.
-    var modelID: String = "eleven_multilingual_v2"
+    /// eleven_flash_v2_5: ElevenLabs' low-latency model (~75ms generation,
+    /// vs. several seconds for eleven_multilingual_v2 on a longer reply) —
+    /// still fully multilingual/Spanish, just optimized for speed over the
+    /// last bit of expressiveness. This is the single biggest lever on "how
+    /// long Jarvis takes to respond" that doesn't touch Claude's own
+    /// thinking time, since today the full answer has to finish generating
+    /// before ANY of it can play.
+    var modelID: String = "eleven_flash_v2_5"
 
     func synthesizeSpeech(text: String) async throws -> Data {
         guard !apiKey.isEmpty, !voiceID.isEmpty else {
@@ -46,7 +52,10 @@ struct ElevenLabsClient {
             "voice_settings": [
                 "stability": 0.45,
                 "similarity_boost": 0.85,
-                "style": 0.3,
+                // 0, not the previous 0.3: ElevenLabs' own guidance is that
+                // style exaggeration adds real latency on the flash/turbo
+                // models, working against the whole point of using one.
+                "style": 0,
                 "use_speaker_boost": true,
                 // 1.0 es el ritmo normal de la voz clonada; súbelo un poco
                 // (máximo permitido: 1.2) para que suene más ágil en vez de

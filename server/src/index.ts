@@ -291,6 +291,14 @@ wss.on("connection", (ws: WebSocket) => {
             ],
             permissionMode: "bypassPermissions",
             allowDangerouslySkipPermissions: true,
+            // Default is up to 10-15 retries on a failed API call, which on
+            // a flaky connection can silently add a long wait before Jarvis
+            // ever gets to responding. Fail faster instead — the phone-side
+            // watchdog (JarvisServerClient.ask) already gives up after 90s
+            // and the pending-result fallback (backgroundJobs.ts) covers a
+            // turn that finishes later anyway, so there's little upside to
+            // holding on this long.
+            env: { ...process.env, CLAUDE_CODE_MAX_RETRIES: "2" },
             ...(sessionId ? { resume: sessionId } : {}),
             ...(CLAUDE_EXECUTABLE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_EXECUTABLE_PATH, executable: "node" as const } : {})
           }

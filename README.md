@@ -303,19 +303,14 @@ que tengas que tocar nada:
 - Si sales de la app o bloqueas el móvil, deja de escuchar automáticamente
   (no puede seguir en segundo plano, como ya se explicó arriba), y retoma
   al volver a abrirla.
-- **Puedes cortarle mientras habla** (barge-in): si empiezas a hablar
-  mientras Jarvis está respondiendo, se calla al momento y sigue
-  escuchando lo que le estás diciendo, en vez de tener que esperar a que
-  termine su frase. Como el micrófono del propio móvil capta también su
-  propia voz por el altavoz (no hay cancelación de eco de hardware en este
-  montaje), distingue "se está oyendo a sí mismo" de "el usuario me está
-  hablando" comparando lo que oye con lo que está diciendo en ese momento
-  — si se parece, lo ignora; si no se parece nada, para y escucha. Es una
-  heurística, no perfecta: en un sitio con eco fuerte o si dices algo muy
-  parecido a lo que él está diciendo, puede tardar un poco más en
-  reaccionar. Si en la práctica se corta solo demasiado (falsos positivos)
-  o casi nunca te deja interrumpirle, dímelo con un ejemplo de cuándo pasó
-  y ajusto el umbral.
+- Jarvis siempre termina su frase mientras responde — no se corta solo a
+  mitad. Se probó una versión que intentaba detectar cuándo le
+  interrumpías para callarse al momento, pero como el micrófono del propio
+  móvil capta también su propia voz por el altavoz (no hay cancelación de
+  eco de hardware en este montaje) y encima compartir la sesión de audio
+  entre micrófono y altavoz a la vez resultó ser bastante frágil en iOS,
+  se dejó fuera — mejor un Jarvis fiable que uno que a veces se queda
+  congelado.
 
 **Respuesta escrita en vez de hablada:** si en tu frase dices la palabra
 **"escríbeme"** (en cualquier parte, ej. "escríbeme la lista de la compra"),

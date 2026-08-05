@@ -52,15 +52,7 @@ final class SpeechRecognizer: NSObject, ObservableObject {
 
         do {
             let session = AVAudioSession.sharedInstance()
-            // .voiceChat (not .measurement): we now also run this while Jarvis
-            // is talking, to detect the user barging in (see
-            // ConversationEngine.startInterruptWatch) — .voiceChat is Apple's
-            // mode for simultaneous play+record and enables some amount of
-            // built-in echo/noise handling that plain .measurement doesn't,
-            // on top of the transcript-comparison heuristic that does the
-            // real work of telling "Jarvis's own echoed voice" apart from
-            // "the user actually talking".
-            try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.duckOthers, .defaultToSpeaker, .allowBluetooth])
+            try session.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
 
             let newRequest = SFSpeechAudioBufferRecognitionRequest()

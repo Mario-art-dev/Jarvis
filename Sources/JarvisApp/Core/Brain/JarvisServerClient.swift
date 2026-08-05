@@ -4,12 +4,14 @@ enum ServerError: Error, LocalizedError {
     case missingConfig
     case invalidURL
     case connectionClosed(String)
+    case timedOut
 
     var errorDescription: String? {
         switch self {
         case .missingConfig: return "Falta la URL o el token del servidor Jarvis. Configúralos en Ajustes."
         case .invalidURL: return "La URL del servidor no es válida."
         case .connectionClosed(let reason): return "Conexión con el servidor perdida: \(reason)"
+        case .timedOut: return "Jarvis tardó demasiado en responder — puede que la conexión se cortara. Inténtalo de nuevo."
         }
     }
 }
@@ -64,6 +66,21 @@ final class JarvisServerClient: NSObject {
         let imagePayload = images.map { ["media_type": $0.mediaType, "data": $0.data.base64EncodedString()] }
         try await send(["type": "user_message", "text": text, "images": imagePayload], on: ws)
 
+        // Force-close the socket if nothing arrives within this window —
+        // mostly to recover from a connection that died silently (ej. the
+        // phone got backgrounded/suspended and the network dropped without
+        // either side ever getting a close frame), which otherwise left
+        // Jarvis stuck on "pensando" forever with nothing to wake it up.
+        // The Claude turn itself might still be running server-side even
+        // after this — if it finishes later, backgroundJobs.ts on the
+        // server catches the answer and delivers it next time the app
+        // reopens (see ConversationEngine.greet) instead of losing it.
+        let watchdog = Task {
+            try? await Task.sleep(nanoseconds: 90_000_000_000)
+            ws.cancel(with: .goingAway, reason: nil)
+        }
+        defer { watchdog.cancel() }
+
         while true {
             let message = try await ws.receive()
             guard case .string(let jsonString) = message,
@@ -110,6 +127,14 @@ final class JarvisServerClient: NSObject {
         let ws = session.webSocketTask(with: request)
         ws.resume()
         defer { ws.cancel(with: .normalClosure, reason: nil) }
+
+        // Short watchdog — this is a single quick round trip normally, not
+        // worth risking greet() hanging forever on a dead connection.
+        let watchdog = Task {
+            try? await Task.sleep(nanoseconds: 10_000_000_000)
+            ws.cancel(with: .goingAway, reason: nil)
+        }
+        defer { watchdog.cancel() }
 
         do {
             try await send(["type": "check_pending"], on: ws)

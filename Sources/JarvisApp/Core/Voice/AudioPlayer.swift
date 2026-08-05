@@ -16,14 +16,15 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
     func play(data: Data, onFinish: (() -> Void)? = nil) {
         do {
             let session = AVAudioSession.sharedInstance()
-            // .playAndRecord + .voiceChat (not plain .playback): this has to
-            // coexist with SpeechRecognizer's mic tap running at the same
-            // time, since ConversationEngine now listens for a possible
-            // interruption (barge-in) while Jarvis is still talking — see
-            // ConversationEngine.startInterruptWatch. Same category/mode as
-            // SpeechRecognizer.startListening() so neither one silently
-            // knocks the other off the shared audio session.
-            try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.duckOthers, .defaultToSpeaker, .allowBluetooth])
+            // Plain .playback, not shared with the mic: an earlier version
+            // ran SpeechRecognizer's mic tap at the same time (to support
+            // barge-in / "calla"), sharing one .playAndRecord session
+            // between two independent audio components — reactivating that
+            // shared session from either side while the other was mid-use
+            // caused several distinct freezes (playback silently
+            // interrupted without firing its completion, hanging speak()
+            // forever). Simpler and reliable beats interruptible and flaky.
+            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
             try session.setActive(true)
 
             player = try AVAudioPlayer(data: data)

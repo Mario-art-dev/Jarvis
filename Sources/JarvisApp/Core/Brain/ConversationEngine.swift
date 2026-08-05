@@ -38,19 +38,14 @@ final class ConversationEngine: ObservableObject {
     private var pendingImagePrompt: String?
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
 
-    /// Owned here (not by the view) so this class can also run it while
-    /// Jarvis is speaking, to detect the user barging in — see
-    /// startInterruptWatch(). The view still binds to it directly for the
-    /// mic button / silence-detection timer.
+    /// Owned here (not by the view) purely so the view can bind to it for
+    /// the silence-detection timer and live HUD level/transcript.
     let speech = SpeechRecognizer()
     let audioPlayer = AudioPlayer()
 
     private let config: AppConfig
     private let toolRegistry = ToolRegistry()
     private lazy var serverClient = JarvisServerClient(toolRegistry: toolRegistry)
-
-    private var interruptWatch: AnyCancellable?
-    private var wasInterrupted = false
 
     init(config: AppConfig) {
         self.config = config
@@ -68,10 +63,6 @@ final class ConversationEngine: ObservableObject {
         let greeting = "Buenas, señor. ¿En qué puedo ayudarle?"
         transcript.append(TranscriptEntry(speaker: "Jarvis", text: greeting))
         await speak(greeting)
-        // If the user already jumped in over the greeting (state is
-        // .listening, not .idle — see speak()'s interrupt handling), don't
-        // barge in on top of THAT with a second announcement.
-        guard state == .idle else { return }
 
         // If something you asked before closing the app finished running
         // in the meantime (see server/src/backgroundJobs.ts), deliver it
@@ -160,29 +151,22 @@ final class ConversationEngine: ObservableObject {
     }
 
     /// Called when the app leaves the foreground (backgrounded, another app
-    /// opened, phone locked). `state` doesn't reset on its own when that
-    /// happens, so without this it can get stuck (see the two bugs below),
-    /// blocking `beginListeningIfIdle()`'s `state == .idle` guard forever —
-    /// which is what made Jarvis look frozen until force-quit and reopened.
-    ///
-    /// Order matters here: mic and speaker now share one audio session
-    /// (.playAndRecord, so the mic can listen for "calla" while Jarvis
-    /// talks — see startInterruptWatch). Killing the mic first
-    /// (speech.stopListening deactivates the *shared* session) while the
-    /// player is still mid-playback yanks the session out from under
-    /// AVAudioPlayer without going through its own stop() — so it never
-    /// fires its completion callback, and speak() hangs forever awaiting it.
-    /// That was the second freeze bug. Stopping the player FIRST (its own
-    /// stop() always fires the completion, see AudioPlayer.stop) lets
-    /// speak() finish normally and stop the mic itself, in the right order.
+    /// opened, phone locked). The mic/speaker don't reset `state` on their
+    /// own, so without this it can get stuck at `.listening` or
+    /// `.speaking`, blocking `beginListeningIfIdle()`'s `state == .idle`
+    /// guard forever — which is what made Jarvis look frozen until
+    /// force-quit and reopened. `.thinking` (an in-flight server turn) is
+    /// deliberately left alone here — see JarvisServerClient's timeout for
+    /// how that case now resolves instead of hanging forever too.
     func handleAppBackgrounded() {
-        interruptWatch?.cancel()
-        interruptWatch = nil
         switch state {
         case .listening:
             speech.stopListening()
             state = .idle
         case .speaking:
+            // Fires the pending completion too (see AudioPlayer.stop), so
+            // this unblocks speak()'s continuation and it sets state =
+            // .idle itself right after.
             audioPlayer.stop()
         case .idle, .thinking:
             break
@@ -224,84 +208,18 @@ final class ConversationEngine: ObservableObject {
 
     private func speak(_ text: String) async {
         state = .speaking
-        wasInterrupted = false
         do {
             let elevenLabs = ElevenLabsClient(apiKey: config.elevenLabsAPIKey, voiceID: config.elevenLabsVoiceID)
             let audioData = try await elevenLabs.synthesizeSpeech(text: text)
-
-            startInterruptWatch()
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                 audioPlayer.play(data: audioData) {
                     continuation.resume()
                 }
             }
-            stopInterruptWatch()
         } catch {
             lastError = error.localizedDescription
-            stopInterruptWatch()
         }
-
-        if wasInterrupted {
-            wasInterrupted = false
-            // Don't cut the user off at whatever they'd said the instant
-            // the interruption was detected — hand off to the normal
-            // listening/silence-detection flow instead, on the SAME
-            // still-running mic session (so the words they interrupted
-            // with stay in speech.transcript instead of being reset), and
-            // let them keep talking until they actually pause.
-            state = .listening
-            return
-        }
-        // Not interrupted: stop the listening session that was only running
-        // for interrupt-detection, so beginListeningIfIdle() starts a clean
-        // one for the user's next utterance instead of reusing a transcript
-        // buffer full of Jarvis's own echoed speech.
-        speech.stopListening()
         state = .idle
-    }
-
-    /// While Jarvis talks, the mic stays on listening for one specific word
-    /// — "calla" — instead of trying to interrupt on anything that sounds
-    /// like the user talking. An early version tried to detect ANY speech
-    /// that didn't match what Jarvis was currently saying, to tell a real
-    /// interruption apart from the mic just picking up his own voice
-    /// through the speaker — but that echo is noisy enough (no hardware
-    /// echo cancellation here) that it kept misfiring on Jarvis's own
-    /// voice, cutting him off mid-sentence for no reason. A single fixed
-    /// keyword sidesteps that entirely: no echo is going to transcribe as
-    /// "calla" by accident.
-    private func startInterruptWatch() {
-        speech.requestAuthorization { [weak self] granted in
-            guard let self, granted, !self.speech.isListening else { return }
-            self.speech.startListening()
-        }
-        interruptWatch = speech.$transcript
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] heard in
-                self?.evaluatePossibleInterruption(heard)
-            }
-    }
-
-    private func stopInterruptWatch() {
-        interruptWatch?.cancel()
-        interruptWatch = nil
-    }
-
-    private func evaluatePossibleInterruption(_ heard: String) {
-        guard state == .speaking, !wasInterrupted else { return }
-        guard normalizeForComparison(heard).contains("calla") else { return }
-
-        wasInterrupted = true
-        audioPlayer.stop()
-    }
-
-    /// Strips accents/case/punctuation so "cállate", "¡calla!", "Calla." etc
-    /// all match regardless of exactly how it's said or transcribed.
-    private func normalizeForComparison(_ text: String) -> String {
-        let folded = text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
-        let keep = CharacterSet.alphanumerics.union(.whitespaces)
-        let scrubbed = String(folded.unicodeScalars.map { keep.contains($0) ? Character($0) : " " })
-        return scrubbed.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Buys extra run time from iOS for a turn that's mid-flight when the
