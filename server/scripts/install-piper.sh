@@ -6,7 +6,13 @@
 # exactamente igual que antes (ElevenLabs y, si se agotan los créditos, la
 # voz del propio iPhone). Nada de lo que hagas aquí puede dejarlo mudo.
 #
-# Uso: server/scripts/install-piper.sh
+# Uso:
+#   server/scripts/install-piper.sh            # voz por defecto (davefx)
+#   server/scripts/install-piper.sh --list     # ver todas las voces
+#   server/scripts/install-piper.sh sharvard   # instalar/cambiar a esa voz
+#
+# Cambiar de voz después es solo volver a ejecutarlo con otro nombre: no
+# vuelve a descargar Piper, solo la voz nueva.
 
 set -euo pipefail
 
@@ -15,11 +21,53 @@ SERVER_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PIPER_DIR="$SERVER_DIR/piper"
 ENV_FILE="$SERVER_DIR/.env"
 
-# Voz española de calidad media: buen equilibrio entre naturalidad y
-# velocidad en un Mac antiguo. Hay más en:
-# https://huggingface.co/rhasspy/piper-voices/tree/main/es/es_ES
-VOICE_BASE="https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium"
-VOICE_ONNX="es_ES-davefx-medium.onnx"
+# nombre|idioma|carpeta|calidad|descripción
+# Catálogo completo: https://huggingface.co/rhasspy/piper-voices/tree/main/es
+VOICES=(
+  "davefx|es_ES|davefx|medium|Hombre, español de España. Equilibrada y natural (por defecto)"
+  "sharvard|es_ES|sharvard|medium|Mujer, español de España. Clara y neutra"
+  "carlfm|es_ES|carlfm|x_low|Hombre, español de España. La más rápida, calidad baja"
+  "claude|es_MX|claude|high|Mujer, español de México. Calidad alta, la que mejor suena"
+  "daniela|es_AR|daniela|high|Mujer, español de Argentina. Calidad alta"
+  "ald|es_MX|ald|medium|Hombre, español de México"
+)
+
+list_voices() {
+  echo "Voces disponibles:"
+  echo ""
+  for entry in "${VOICES[@]}"; do
+    IFS='|' read -r key lang _ quality desc <<< "$entry"
+    printf "  %-10s %s\n" "$key" "$desc"
+  done
+  echo ""
+  echo "Para instalar una:  ./scripts/install-piper.sh <nombre>"
+  echo "Las de calidad 'high' suenan mejor pero tardan algo más en generarse,"
+  echo "lo que en un Mac antiguo puede notarse como un pequeño retraso al hablar."
+}
+
+if [ "${1:-}" = "--list" ] || [ "${1:-}" = "-l" ]; then
+  list_voices
+  exit 0
+fi
+
+REQUESTED="${1:-davefx}"
+VOICE_ENTRY=""
+for entry in "${VOICES[@]}"; do
+  if [ "${entry%%|*}" = "$REQUESTED" ]; then VOICE_ENTRY="$entry"; break; fi
+done
+
+if [ -z "$VOICE_ENTRY" ]; then
+  echo "ERROR: no conozco la voz \"$REQUESTED\"." >&2
+  echo "" >&2
+  list_voices >&2
+  exit 1
+fi
+
+IFS='|' read -r VOICE_KEY VOICE_LANG VOICE_FOLDER VOICE_QUALITY VOICE_DESC <<< "$VOICE_ENTRY"
+VOICE_ONNX="${VOICE_LANG}-${VOICE_FOLDER}-${VOICE_QUALITY}.onnx"
+VOICE_BASE="https://huggingface.co/rhasspy/piper-voices/resolve/main/es/${VOICE_LANG}/${VOICE_FOLDER}/${VOICE_QUALITY}"
+
+echo "==> Voz elegida: $VOICE_KEY — $VOICE_DESC"
 
 case "$(uname -m)" in
   arm64) PIPER_ASSET="piper_macos_aarch64.tar.gz" ;;
@@ -27,25 +75,51 @@ case "$(uname -m)" in
   *) echo "ERROR: arquitectura $(uname -m) no soportada por Piper." >&2; exit 1 ;;
 esac
 
-echo "==> Descargando Piper ($PIPER_ASSET)..."
 mkdir -p "$PIPER_DIR"
-cd "$PIPER_DIR"
-curl -L --fail --progress-bar \
-  "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/$PIPER_ASSET" \
-  -o piper.tar.gz
-tar -xzf piper.tar.gz
-rm -f piper.tar.gz
-
 PIPER_BIN="$PIPER_DIR/piper/piper"
-if [ ! -x "$PIPER_BIN" ]; then
-  echo "ERROR: no encuentro el ejecutable en $PIPER_BIN tras descomprimir." >&2
-  exit 1
+
+if [ -x "$PIPER_BIN" ]; then
+  echo "==> Piper ya está instalado, solo descargo la voz."
+else
+  echo "==> Descargando Piper ($PIPER_ASSET)..."
+  cd "$PIPER_DIR"
+  curl -L --fail --progress-bar \
+    "https://github.com/rhasspy/piper/releases/download/2023.11.14-2/$PIPER_ASSET" \
+    -o piper.tar.gz
+  tar -xzf piper.tar.gz
+  rm -f piper.tar.gz
+
+  if [ ! -x "$PIPER_BIN" ]; then
+    echo "ERROR: no encuentro el ejecutable en $PIPER_BIN tras descomprimir." >&2
+    exit 1
+  fi
 fi
 
-echo "==> Descargando la voz en español ($VOICE_ONNX)..."
-curl -L --fail --progress-bar "$VOICE_BASE/$VOICE_ONNX" -o "$PIPER_DIR/$VOICE_ONNX"
-# El .json va al lado del .onnx y describe el modelo; Piper lo busca solo.
-curl -L --fail --progress-bar "$VOICE_BASE/$VOICE_ONNX.json" -o "$PIPER_DIR/$VOICE_ONNX.json"
+if [ -f "$PIPER_DIR/$VOICE_ONNX" ]; then
+  echo "==> Esa voz ya estaba descargada."
+else
+  echo "==> Descargando la voz ($VOICE_ONNX)..."
+  if ! curl -L --fail --progress-bar "$VOICE_BASE/$VOICE_ONNX" -o "$PIPER_DIR/$VOICE_ONNX"; then
+    rm -f "$PIPER_DIR/$VOICE_ONNX"
+    echo "" >&2
+    echo "ERROR: no se pudo descargar la voz desde:" >&2
+    echo "  $VOICE_BASE/$VOICE_ONNX" >&2
+    echo "" >&2
+    echo "Si el enlace da 404, el catálogo puede haber cambiado de sitio." >&2
+    echo "Mira los nombres actuales en:" >&2
+    echo "  https://huggingface.co/rhasspy/piper-voices/tree/main/es" >&2
+    echo "y dime cuál hay, para corregir el script." >&2
+    echo "" >&2
+    echo "No se ha cambiado nada: Jarvis sigue funcionando como hasta ahora." >&2
+    exit 1
+  fi
+  # El .json va al lado del .onnx y describe el modelo; Piper lo busca solo.
+  if ! curl -L --fail --progress-bar "$VOICE_BASE/$VOICE_ONNX.json" -o "$PIPER_DIR/$VOICE_ONNX.json"; then
+    rm -f "$PIPER_DIR/$VOICE_ONNX" "$PIPER_DIR/$VOICE_ONNX.json"
+    echo "ERROR: la voz se descargó pero falta su archivo .json de configuración." >&2
+    exit 1
+  fi
+fi
 
 echo "==> Comprobando que Piper arranca en este Mac..."
 # macOS pone en cuarentena lo descargado; sin esto el binario no abre.

@@ -118,11 +118,29 @@ arranca, el script te lo dice y no toca la configuración: Jarvis sigue con
 ElevenLabs y con la voz del iPhone como hasta ahora. Lo mismo si Piper falla
 en marcha — cada respuesta cae hacia atrás sola.
 
-Calidad: mejor que las voces de Apple, algo por debajo de la voz clonada de
-ElevenLabs. Hay más voces en español en
-[huggingface.co/rhasspy/piper-voices](https://huggingface.co/rhasspy/piper-voices/tree/main/es/es_ES)
-— para cambiarla, descarga el `.onnx` y su `.json` y apunta `PIPER_VOICE` al
-nuevo archivo.
+**Elegir voz.** Hay varias en español:
+
+```bash
+./scripts/install-piper.sh --list        # ver todas
+./scripts/install-piper.sh sharvard      # cambiar a esa
+```
+
+| Nombre | Voz |
+|---|---|
+| `davefx` | Hombre, España. Equilibrada y natural (por defecto) |
+| `sharvard` | Mujer, España. Clara y neutra |
+| `carlfm` | Hombre, España. La más rápida, calidad baja |
+| `claude` | Mujer, México. Calidad alta, la que mejor suena |
+| `daniela` | Mujer, Argentina. Calidad alta |
+| `ald` | Hombre, México |
+
+Cambiar de voz es solo volver a ejecutar el script con otro nombre — no
+vuelve a descargar Piper, solo la voz nueva. Las de calidad *alta* suenan
+mejor pero tardan algo más en generarse, lo que en un Mac antiguo puede
+notarse como un pequeño retraso antes de hablar.
+
+Calidad general: mejor que las voces de Apple, algo por debajo de la voz
+clonada de ElevenLabs.
 
 **Mejorar la voz de respaldo, gratis:** por defecto iOS usa una voz
 "compacta" bastante robótica, pero tiene voces mucho mejores que solo hay
