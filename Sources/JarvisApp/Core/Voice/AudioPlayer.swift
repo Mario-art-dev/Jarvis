@@ -15,19 +15,22 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     func play(data: Data, onFinish: (() -> Void)? = nil) {
         do {
-            // Plain .playback: not shared with the mic. A previous version
-            // ran the mic at the same time as this (to catch a "calla"
-            // interrupt word), sharing one .playAndRecord session between
-            // this and SpeechRecognizer — but that meant the mic had to
-            // start/stop far more often than a normal listen-think-speak
-            // cycle needs (once per Jarvis reply, not just once per user
-            // turn), which made SFSpeechRecognizer noticeably flakier about
-            // actually starting, and repeatedly caused Jarvis to stop
-            // responding to voice at all. Retired for good — a mute button
-            // (see ConversationView) covers "stop waiting for silence"
-            // without needing the mic and speaker to run together.
+            // .playAndRecord (not plain .playback) so InterruptListener can
+            // attach a mic tap and hear "Jarvis calla" over the top of this.
+            //
+            // This is configured here, once, before playback starts, and
+            // nothing else touches the session for the rest of the reply —
+            // InterruptListener deliberately only attaches an input tap. Two
+            // components independently reconfiguring a live shared session
+            // was the exact race that used to cut playback off silently, so
+            // there is now a single owner of it at any moment.
+            //
+            // .default rather than .voiceChat: the latter is tuned for
+            // audio held to your ear and noticeably quietens output even
+            // with .defaultToSpeaker set, which once made Jarvis almost
+            // inaudible on speaker.
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
+            try session.setCategory(.playAndRecord, mode: .default, options: [.duckOthers, .defaultToSpeaker, .allowBluetooth])
             try session.setActive(true)
 
             player = try AVAudioPlayer(data: data)

@@ -303,18 +303,26 @@ que tengas que tocar nada:
 - Si sales de la app o bloqueas el móvil, deja de escuchar automáticamente
   (no puede seguir en segundo plano, como ya se explicó arriba), y retoma
   al volver a abrirla.
-- Jarvis siempre termina su frase mientras responde — no se corta a mitad.
-  Se intentó varias veces una función para interrumpirle con la voz (una
-  palabra tipo "calla"), incluida una vuelta final con todos los arreglos
-  de fiabilidad conocidos aplicados a la vez — y aun así volvió a fallar
-  (el micrófono dejaba de escuchar de verdad). La causa de fondo: exigía
-  que el micrófono y el altavoz funcionaran a la vez todo el rato en vez
-  de solo cuando toca escuchar, y eso resultó ser demasiado poco fiable en
-  este montaje concreto. Se retira de forma definitiva — no se va a volver
-  a intentar sin cambiar el enfoque técnico de raíz (ej. un único motor de
-  audio compartido con cancelación de eco real, un proyecto bastante más
-  grande) — a cambio de que lo básico (escuchar, pensar, hablar) sea
-  sólido.
+- **Di "Jarvis calla" para que se calle a mitad de frase.** Es la única
+  forma de cortarle hablando: hablar por encima sin decir esa frase exacta
+  no le interrumpe, termina lo que estaba diciendo.
+
+  Son dos palabras a propósito. El micrófono del móvil capta también la
+  propia voz de Jarvis por el altavoz (no hay cancelación de eco por
+  hardware en este montaje), así que una palabra suelta y común no era
+  fiable; "Jarvis calla" no aparece por accidente ni en su propio eco.
+
+  **Aviso honesto:** esta función se intentó dos veces antes y las dos
+  veces acabó rompiendo la escucha normal (Jarvis dejaba de oírte del
+  todo). Este tercer intento cambia el enfoque para atacar justo esa
+  causa: usa un reconocedor de voz **totalmente separado** del principal,
+  de forma que si falla no puede dejar el micrófono principal en mal
+  estado — como mucho, esta función deja de funcionar en silencio y el
+  resto sigue igual. Además, la sesión de audio ahora la configura un
+  único sitio (el reproductor) en vez de dos componentes peleándose por
+  ella, que era la carrera concreta que cortaba el sonido. Si aun así
+  vuelves a notar que deja de escucharte, dilo y se quita otra vez: lo
+  básico es más importante que esto.
 - **Botón de silenciar el micrófono**, abajo en pantalla, igual que el
   mute de una llamada: lo pulsas y Jarvis deja de escucharte del todo (el
   botón se pone rojo con el micro tachado); lo vuelves a pulsar y te

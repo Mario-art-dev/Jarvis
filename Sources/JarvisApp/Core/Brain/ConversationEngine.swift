@@ -79,6 +79,9 @@ final class ConversationEngine: ObservableObject {
     /// BackgroundKeepAlive for why, and why it can't collide with the mic
     /// or with spoken replies.
     private let keepAlive = BackgroundKeepAlive()
+    /// Its own recognizer, entirely separate from `speech` — see
+    /// InterruptListener for why that isolation matters.
+    private let interruptListener = InterruptListener()
 
     private let config: AppConfig
     private let toolRegistry = ToolRegistry()
@@ -262,6 +265,9 @@ final class ConversationEngine: ObservableObject {
         isMuted.toggle()
         guard isMuted else { return }
         speech.stopListening()
+        // Muting mid-reply also stops it watching for "Jarvis calla" — mic
+        // off means mic off, whatever it was being used for.
+        interruptListener.stop()
         if state == .listening { state = .idle }
     }
 
@@ -283,6 +289,7 @@ final class ConversationEngine: ObservableObject {
             // Fires the pending completion too (see AudioPlayer.stop), so
             // this unblocks speak()'s continuation and it sets state =
             // .idle itself right after.
+            interruptListener.stop()
             audioPlayer.stop()
         case .thinking:
             // A request is in flight and you've walked away — keep the app
@@ -342,11 +349,23 @@ final class ConversationEngine: ObservableObject {
             let elevenLabs = ElevenLabsClient(apiKey: config.elevenLabsAPIKey, voiceID: config.elevenLabsVoiceID)
             let audioData = try await elevenLabs.synthesizeSpeech(text: text)
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                // play() configures the audio session for simultaneous
+                // record+playback, so the listener below has to start after
+                // it, and only ever attaches a tap to that session.
                 audioPlayer.play(data: audioData) {
                     continuation.resume()
                 }
+                // Not while muted: if you've switched the mic off, it stays
+                // off — no listening of any kind behind your back.
+                if !isMuted {
+                    interruptListener.start { [weak self] in
+                        self?.audioPlayer.stop()
+                    }
+                }
             }
+            interruptListener.stop()
         } catch {
+            interruptListener.stop()
             lastError = error.localizedDescription
         }
         state = .idle
