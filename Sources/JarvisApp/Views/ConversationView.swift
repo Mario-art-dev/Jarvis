@@ -65,18 +65,19 @@ struct ConversationView: View {
                     }
                 }
                 Spacer()
-                if engine.state == .listening {
-                    muteButton
-                        .padding(.bottom, 36)
-                        .transition(.opacity.combined(with: .scale))
-                } else if isPaused {
-                    resumeButton
-                        .padding(.bottom, 36)
-                        .transition(.opacity.combined(with: .scale))
+                HStack(spacing: 14) {
+                    if isPaused {
+                        resumeButton
+                            .transition(.opacity.combined(with: .scale))
+                    }
+                    if config.isConfigured {
+                        muteButton
+                    }
                 }
+                .padding(.bottom, 36)
             }
-            .animation(.easeInOut(duration: 0.2), value: engine.state == .listening)
             .animation(.easeInOut(duration: 0.2), value: isPaused)
+            .animation(.easeInOut(duration: 0.2), value: engine.isMuted)
 
             if let written = engine.writtenResponse {
                 WrittenResponseView(text: written) {
@@ -259,6 +260,10 @@ struct ConversationView: View {
     /// while the app is open, with no tap required.
     private func beginListeningIfIdle() {
         guard config.isConfigured else { return }
+        // Muting has to win over every automatic path that re-arms the mic
+        // (finishing a reply, returning to the app, the watchdog resetting
+        // a stuck state...), or it'd switch itself back on behind your back.
+        guard !engine.isMuted else { return }
         guard !speech.isListening else { return }
         guard engine.state == .idle && scenePhase == .active else { return }
 
@@ -272,24 +277,23 @@ struct ConversationView: View {
         }
     }
 
-    /// Only shown while actually listening — tapping it ends the turn right
-    /// now instead of waiting for the usual silence detection, for when you
-    /// want Jarvis to start thinking immediately (ej. background noise
-    /// keeps resetting the silence timer, or you just don't want to wait
-    /// out the pause).
+    /// Mic on/off toggle, like mute on a call: while muted Jarvis doesn't
+    /// hear you at all, and nothing re-arms the mic until you tap it again.
+    /// Turns red while muted so the state is obvious at a glance.
     private var muteButton: some View {
         Button {
-            guard !speech.transcript.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-            finishListeningAndSubmit()
+            engine.toggleMute()
+            if !engine.isMuted { beginListeningIfIdle() }
         } label: {
-            Image(systemName: "mic.slash.fill")
+            Image(systemName: engine.isMuted ? "mic.slash.fill" : "mic.fill")
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundColor(.black)
+                .foregroundColor(engine.isMuted ? .white : .black)
                 .frame(width: 60, height: 60)
-                .background(Color.white.opacity(0.9))
+                .background(engine.isMuted ? Color.red.opacity(0.85) : Color.white.opacity(0.9))
                 .clipShape(Circle())
                 .shadow(color: .black.opacity(0.3), radius: 8)
         }
+        .accessibilityLabel(engine.isMuted ? "Activar micrófono" : "Silenciar micrófono")
     }
 
     /// "Paused": sitting idle with the mic genuinely not running. Normally
@@ -302,6 +306,7 @@ struct ConversationView: View {
         config.isConfigured
             && engine.state == .idle
             && !speech.isListening
+            && !engine.isMuted // muted is deliberate, not stuck
             && engine.writtenResponse == nil
     }
 

@@ -40,6 +40,12 @@ final class ConversationEngine: ObservableObject {
     /// (see ConversationView's resume button) instead of pretending nothing
     /// is outstanding.
     @Published var awaitingLongTask = false
+    /// Mic switched off on purpose, like mute on a call — Jarvis stops
+    /// hearing you entirely until you switch it back on. Distinct from
+    /// merely not listening right now (which is transient and
+    /// self-correcting): this suppresses the auto-restart, so nothing
+    /// re-arms the mic behind your back.
+    @Published private(set) var isMuted = false
     private var pendingImagePrompt: String?
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
 
@@ -246,6 +252,17 @@ final class ConversationEngine: ObservableObject {
 
     func cancelImageRequest() {
         pendingImagePrompt = nil
+    }
+
+    /// Mic on/off, like the mute button on a call. Muting cuts the mic
+    /// immediately even mid-sentence; it deliberately does NOT stop Jarvis
+    /// talking, same as muting yourself doesn't mute the other person.
+    /// Unmuting is picked up by the caller, which re-arms listening.
+    func toggleMute() {
+        isMuted.toggle()
+        guard isMuted else { return }
+        speech.stopListening()
+        if state == .listening { state = .idle }
     }
 
     /// Called when the app leaves the foreground (backgrounded, another app
