@@ -92,8 +92,17 @@ final class SpeechRecognizer: NSObject, ObservableObject {
 
     private func beginListening(with recognizer: SFSpeechRecognizer) {
         do {
+            // Must match AudioPlayer's configuration exactly (same category,
+            // mode and options) — iOS only reconfigures the audio hardware
+            // when something actually changes, and a mismatch here (this
+            // used to be .measurement, chosen for slightly flatter STT
+            // input) forced a reset on every single turn: right as Jarvis
+            // finished talking and listening restarted, the hardware
+            // switching modes produced an audible click/pop through the
+            // speaker. Matching them means no reconfiguration happens at
+            // that handoff, so nothing to click.
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
+            try session.setCategory(.playAndRecord, mode: .default, options: [.duckOthers, .defaultToSpeaker, .allowBluetooth])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
 
             let newRequest = SFSpeechAudioBufferRecognitionRequest()
