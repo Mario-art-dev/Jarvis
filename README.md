@@ -20,7 +20,7 @@ de esas reglas:
 - Abrir búsquedas en Safari.
 - Leer y crear eventos de Calendario y Recordatorios (con tu permiso, vía EventKit).
 - Buscar contactos por nombre (vía Contacts framework).
-- Contar/buscar fotos en tu galería por fecha, favoritas o capturas (vía Photos framework), y también por *contenido* ("fotos de perros", "fotos de la playa") usando el clasificador de imágenes de Apple (Vision), corriendo en el propio iPhone sin internet. Solo analiza tus fotos más recientes (hasta 120) para que sea rápido, no toda la galería.
+- Contar/buscar fotos en tu galería por fecha, favoritas o capturas (vía Photos framework), y también por *contenido* ("fotos de perros", "fotos de la playa") usando el clasificador de imágenes de Apple (Vision), corriendo en el propio iPhone sin internet. Puede buscar en **toda tu fototeca**, no solo en las recientes: va de las más nuevas hacia atrás durante ~40 segundos, lo que en una fototeca normal da para recorrerla entera. Si la tuya es enorme y no le da tiempo a todo, te dice exactamente cuántas revisó ("he revisado las 3.200 más recientes de 18.000") en vez de dar por hecho que no hay nada.
 - Consultar el tiempo real (temperatura, viento, humedad) de cualquier lugar del mundo, sin API key, corriendo en el servidor.
 - Buscar y leer la web de verdad (no solo abrir una búsqueda) usando WebSearch/WebFetch, para preguntas que necesiten información actual de internet.
 - Reproducir una playlist tuya de la app Música por nombre, con reproducción aleatoria opcional (vía MediaPlayer, solo playlists que ya tengas guardadas en tu biblioteca).
