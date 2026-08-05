@@ -194,7 +194,7 @@ struct ConversationView: View {
                 // instead of silently dropping it. No-ops when there's
                 // nothing waiting, so the normal case is unaffected.
                 Task {
-                    await engine.deliverPendingResultIfAny()
+                    await engine.deliverWhatYouMissed()
                     beginListeningIfIdle()
                 }
             } else {
@@ -313,7 +313,7 @@ struct ConversationView: View {
     private var resumeButton: some View {
         Button {
             Task {
-                await engine.deliverPendingResultIfAny()
+                await engine.deliverWhatYouMissed()
                 speech.stopListening()
                 beginListeningIfIdle()
             }

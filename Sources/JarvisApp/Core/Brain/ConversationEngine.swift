@@ -43,6 +43,28 @@ final class ConversationEngine: ObservableObject {
     private var pendingImagePrompt: String?
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
 
+    /// An answer that arrived while you were out of the app and was meant
+    /// to be spoken. It gets a notification at the time, but speaking it
+    /// then would be talking to an empty room — so it waits here and is
+    /// spoken the moment you come back (see deliverWhatYouMissed).
+    ///
+    /// Persisted rather than held in memory because iOS may kill the app
+    /// outright while backgrounded, and the server-side fallback doesn't
+    /// cover this case: from the server's point of view the answer was
+    /// delivered successfully (the phone was still alive to receive it),
+    /// so it doesn't keep a copy.
+    private var unspokenAnswer: String? {
+        get { UserDefaults.standard.string(forKey: Self.unspokenAnswerKey) }
+        set {
+            if let newValue {
+                UserDefaults.standard.set(newValue, forKey: Self.unspokenAnswerKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.unspokenAnswerKey)
+            }
+        }
+    }
+    private static let unspokenAnswerKey = "com.mariomontesinos.jarvis.unspokenAnswer"
+
     /// Owned here (not by the view) purely so the view can bind to it for
     /// the silence-detection timer and live HUD level/transcript.
     let speech = SpeechRecognizer()
@@ -72,6 +94,26 @@ final class ConversationEngine: ObservableObject {
         let greeting = "Buenas, señor. ¿En qué puedo ayudarle?"
         transcript.append(TranscriptEntry(speaker: "Jarvis", text: greeting))
         await speak(greeting)
+        await deliverWhatYouMissed()
+    }
+
+    /// Everything that finished while you weren't looking, delivered on
+    /// return: first an answer that arrived and was notified but never
+    /// actually spoken (you weren't there to hear it), then anything the
+    /// server finished after the phone had already dropped off entirely.
+    ///
+    /// Called on app launch and on every foreground return, so "ask for
+    /// something, walk away, come back" always ends with Jarvis telling
+    /// you the answer — whether it was meant to be spoken or written.
+    func deliverWhatYouMissed() async {
+        guard config.isConfigured, state == .idle else { return }
+
+        // Clear only once it's actually about to be delivered, so bailing
+        // out above can't silently drop the one copy of it we have.
+        if let unspoken = unspokenAnswer {
+            unspokenAnswer = nil
+            await speak(unspoken)
+        }
         await deliverPendingResultIfAny()
     }
 
@@ -133,12 +175,17 @@ final class ConversationEngine: ObservableObject {
             awaitingLongTask = false
             transcript.append(TranscriptEntry(speaker: "Jarvis", text: finalText))
             if !isForeground {
-                // Stepped away while this was running — can't speak into a
-                // screen nobody's looking at, so this is the notification
-                // from the "impress the family" list: "tu receta está
-                // lista" instead of silence.
+                // Stepped away while this was running: notify now, and hold
+                // the answer so it's actually delivered when you come back
+                // — a written one stays on screen, a spoken one gets spoken
+                // then (see deliverWhatYouMissed) instead of being silently
+                // dropped for having finished while nobody was listening.
                 notifyCompletion(finalText)
-                if wantsWrittenAnswer { writtenResponse = finalText }
+                if wantsWrittenAnswer {
+                    writtenResponse = finalText
+                } else {
+                    unspokenAnswer = finalText
+                }
                 state = .idle
             } else if wantsWrittenAnswer {
                 writtenResponse = finalText
@@ -186,6 +233,7 @@ final class ConversationEngine: ObservableObject {
             transcript.append(TranscriptEntry(speaker: "Jarvis", text: finalText))
             if !isForeground {
                 notifyCompletion(finalText)
+                unspokenAnswer = finalText
                 state = .idle
             } else {
                 await speak(finalText)

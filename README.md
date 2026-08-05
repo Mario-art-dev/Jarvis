@@ -454,10 +454,14 @@ Le pides algo (ej. "búscame una receta de tarta de queso") y sales de la
 app — sin cerrarla del todo, solo te vas a otra cosa o bloqueas el móvil —
 Jarvis sigue pensando. Cuando termina:
 
+Esto funciona con **cualquier cosa que le pidas**, no solo con las que
+empiezan por "escríbeme": un chiste, una receta, una búsqueda, lo que sea.
+
 **Recibes una notificación en cuanto termine**, aunque estés en otra app o
 con el móvil bloqueado: *"Jarvis ya tiene tu respuesta"*, con un adelanto
-del texto. Entras en la app y ahí lo tienes entero (si es largo, como un
-libro, sale en pantalla en vez de leerse en voz alta).
+del texto. Y al volver a entrar en la app **te lo cuenta al momento**: si
+era una respuesta hablada (un chiste, por ejemplo) te la dice en voz alta
+nada más entrar; si era escrita, la tienes en pantalla.
 
 Normalmente iOS suspende una app a los ~30 segundos de salirte, y una app
 suspendida no puede avisarte de nada. La excepción es una app que esté
