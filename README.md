@@ -97,50 +97,57 @@ iPhone**: suena bastante más robótica, pero es gratis, ilimitada y
 funciona sin internet. Te avisa una sola vez de por qué ha cambiado, no
 en cada respuesta.
 
-### Voz local con Piper (gratis, ilimitada, sin cuenta)
+### Voz local del Mac (gratis, ilimitada, sin cuenta) — activa sola
 
-Si no quieres depender de los créditos de ElevenLabs, puedes generar la voz
-en tu propio Mac con [Piper](https://github.com/rhasspy/piper): es gratis,
-ilimitado, funciona sin internet y el audio llega al iPhone por la misma
+Para no depender de los créditos, Jarvis genera la voz **en el propio Mac**
+con el comando `say` que viene dentro de macOS. Es gratis, ilimitado, no
+necesita cuenta ni internet, y el audio llega al iPhone por la misma
 conexión que ya usa Jarvis, así que **se escucha igual en el móvil**.
+
+**No hay que instalar nada ni configurar nada.** Si el Mac tiene alguna voz
+en español (los Macs en español la traen), Jarvis la usa automáticamente y
+ElevenLabs queda solo como respaldo. Al arrancar el servidor debe poner:
+
+```
+Voz: la del propio Mac, "Mónica" (local, ilimitada, sin créditos).
+```
+
+**Elegir otra voz o escucharlas:**
 
 ```bash
 cd Jarvis/server
-./scripts/install-piper.sh
+./scripts/setup-mac-voice.sh --list      # ver las que tienes
+./scripts/setup-mac-voice.sh Jorge       # escucharla y dejarla fija
+./scripts/setup-mac-voice.sh --auto      # volver a la elección automática
 ```
 
-Descarga Piper y una voz en español, **comprueba que arranca en tu Mac** y
-rellena `server/.env` solo. Reinicia el servidor: al arrancar debe poner
-*"Voz: Piper (local, ilimitada)"*.
+**Que suene mucho mejor, gratis.** Las voces que vienen de serie son
+"compactas" y suenan algo robóticas, pero macOS puede descargar las
+*mejoradas* de las mismas voces: **Preferencias del Sistema →
+Accesibilidad → Contenido hablado → Voz del sistema → Personalizar…**, marca
+una en español que ponga *(Mejorada)* o *(Premium)* y acepta. Se llaman
+igual, así que Jarvis la coge sola al reiniciar el servidor.
 
-**Es opcional y no puede romper nada.** Si tu Mac es viejo y el binario no
-arranca, el script te lo dice y no toca la configuración: Jarvis sigue con
-ElevenLabs y con la voz del iPhone como hasta ahora. Lo mismo si Piper falla
-en marcha — cada respuesta cae hacia atrás sola.
+Orden en que se elige la voz de cada respuesta: **Mac → ElevenLabs → voz del
+iPhone**. Si algo falla en cualquier punto, la siguiente toma el relevo sin
+que la app se quede muda.
 
-**Elegir voz.** Hay varias en español:
+<details>
+<summary>Piper (mejor calidad, pero hoy no funciona en Mac)</summary>
 
-```bash
-./scripts/install-piper.sh --list        # ver todas
-./scripts/install-piper.sh sharvard      # cambiar a esa
-```
+[Piper](https://github.com/rhasspy/piper) suena mejor que las voces de
+Apple y `server/scripts/install-piper.sh` está preparado para instalarlo,
+pero **el paquete que sus autores publican para Mac está roto de origen**:
+trae el ejecutable sin ninguna de las librerías (`.dylib`) contra las que
+está enlazado, así que no arranca en ningún Mac, nuevo o viejo. Solo existe
+una versión para Mac Intel y le pasa lo mismo.
 
-| Nombre | Voz |
-|---|---|
-| `davefx` | Hombre, España. Equilibrada y natural (por defecto) |
-| `sharvard` | Mujer, España. Clara y neutra |
-| `carlfm` | Hombre, España. La más rápida, calidad baja |
-| `claude` | Mujer, México. Calidad alta, la que mejor suena |
-| `daniela` | Mujer, Argentina. Calidad alta |
-| `ald` | Hombre, México |
+El script lo detecta y se detiene sin tocar nada, remitiendo a
+`setup-mac-voice.sh`. Si algún día publican un paquete completo, `.env`
+sigue admitiendo `PIPER_PATH` / `PIPER_VOICE` y Piper tendría preferencia
+sobre la voz del Mac sin cambiar nada más.
 
-Cambiar de voz es solo volver a ejecutar el script con otro nombre — no
-vuelve a descargar Piper, solo la voz nueva. Las de calidad *alta* suenan
-mejor pero tardan algo más en generarse, lo que en un Mac antiguo puede
-notarse como un pequeño retraso antes de hablar.
-
-Calidad general: mejor que las voces de Apple, algo por debajo de la voz
-clonada de ElevenLabs.
+</details>
 
 **Mejorar la voz de respaldo, gratis:** por defecto iOS usa una voz
 "compacta" bastante robótica, pero tiene voces mucho mejores que solo hay

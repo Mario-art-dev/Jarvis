@@ -179,11 +179,11 @@ final class JarvisServerClient: NSObject {
         }
     }
 
-    /// Asks the server to synthesise this text with Piper, if it's set up
-    /// there (see server/src/piper.ts). Returns nil whenever it isn't, or
-    /// anything fails — the caller then falls back to ElevenLabs and, past
-    /// that, the iPhone's own voice, so an unconfigured or broken Piper is
-    /// never the difference between Jarvis speaking and not.
+    /// Asks the server to synthesise this text on the Mac itself (see
+    /// server/src/macVoice.ts). Returns nil whenever it can't, or anything
+    /// fails — the caller then falls back to ElevenLabs and, past that, the
+    /// iPhone's own voice, so a missing local voice is never the difference
+    /// between Jarvis speaking and not.
     func synthesize(_ text: String, config: AppConfig) async -> Data? {
         guard !config.serverURL.isEmpty, !config.serverToken.isEmpty,
               let url = URL(string: config.serverURL) else { return nil }

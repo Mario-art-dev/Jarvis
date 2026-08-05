@@ -93,6 +93,26 @@ else
     echo "ERROR: no encuentro el ejecutable en $PIPER_BIN tras descomprimir." >&2
     exit 1
   fi
+
+  # El paquete de Piper para Mac Intel está roto de origen: trae el ejecutable
+  # pero ninguna de las librerías (.dylib) contra las que está enlazado, así
+  # que no puede arrancar en ningún Mac. No es un problema de este ordenador y
+  # no tiene arreglo desde aquí. Se detecta antes de tocar nada.
+  if [ -z "$(find "$PIPER_DIR" -name '*.dylib' -print -quit 2>/dev/null)" ]; then
+    echo "" >&2
+    echo "ERROR: el paquete de Piper para $(uname -m) que publican sus autores está" >&2
+    echo "incompleto: no incluye las librerías que el programa necesita, así que" >&2
+    echo "no puede arrancar. No es culpa de tu Mac." >&2
+    echo "" >&2
+    echo "Usa la voz del propio macOS, que es igual de gratis e ilimitada y ya la" >&2
+    echo "tienes instalada:" >&2
+    echo "" >&2
+    echo "  ./scripts/setup-mac-voice.sh --list" >&2
+    echo "" >&2
+    echo "No se ha cambiado nada." >&2
+    rm -rf "$PIPER_DIR/piper"
+    exit 1
+  fi
 fi
 
 if [ -f "$PIPER_DIR/$VOICE_ONNX" ]; then

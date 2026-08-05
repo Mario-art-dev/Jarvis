@@ -350,10 +350,10 @@ final class ConversationEngine: ObservableObject {
     private func speak(_ text: String) async {
         state = .speaking
         do {
-            // Piper on the Mac first when it's set up there: free, unlimited
-            // and no quota to run out of. Returns nil when it isn't
-            // configured, which is the normal case, so this costs one quick
-            // local round trip and then carries on to ElevenLabs.
+            // The Mac's own voice first: free, unlimited, and no quota to run
+            // out of. Returns nil if the Mac has no Spanish voice or the
+            // server is unreachable, so this costs one quick local round trip
+            // and then carries on to ElevenLabs.
             let audioData: Data
             if let localAudio = await serverClient.synthesize(text, config: config) {
                 audioData = localAudio

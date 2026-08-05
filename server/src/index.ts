@@ -11,6 +11,7 @@ import { loadProfile } from "./profile.js";
 import { loadFamilyReferencePhotos } from "./family.js";
 import { savePendingResult, takePendingResult } from "./backgroundJobs.js";
 import { synthesizeWithPiper, isPiperConfigured } from "./piper.js";
+import { synthesizeWithSay, macVoiceName } from "./macVoice.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const AUTH_TOKEN = process.env.JARVIS_SERVER_TOKEN;
@@ -194,8 +195,12 @@ wss.on("connection", (ws: WebSocket) => {
     if (msg.type === "synthesize") {
       // The phone asks for audio before speaking; a null reply just means
       // "use your own voice instead" (ElevenLabs, then the iPhone's built-in
-      // one), so an unconfigured or broken Piper costs nothing.
-      const audio = await synthesizeWithPiper(String(msg.text ?? ""));
+      // one), so a missing or broken local voice costs nothing.
+      const text = String(msg.text ?? "");
+      // Piper sounds better when it works, but its macOS build is broken
+      // upstream; `say` is part of macOS and always there. Try the good one,
+      // fall through to the reliable one.
+      const audio = (await synthesizeWithPiper(text)) ?? (await synthesizeWithSay(text));
       trySend(ws, { type: "audio", data: audio });
       return;
     }
@@ -371,11 +376,16 @@ wss.on("connection", (ws: WebSocket) => {
   });
 });
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, async () => {
   console.log(`Jarvis server escuchando en :${PORT}`);
+  if (isPiperConfigured()) {
+    console.log("Voz: Piper (local, ilimitada).");
+    return;
+  }
+  const voice = await macVoiceName();
   console.log(
-    isPiperConfigured()
-      ? "Voz: Piper (local, ilimitada)."
-      : "Voz: ElevenLabs desde el móvil. Para una voz local e ilimitada, ejecuta scripts/install-piper.sh"
+    voice
+      ? `Voz: la del propio Mac, "${voice}" (local, ilimitada, sin créditos). Para cambiarla: scripts/setup-mac-voice.sh --list`
+      : "Voz: ElevenLabs desde el móvil. Este Mac no tiene ninguna voz en español instalada; ejecuta scripts/setup-mac-voice.sh para ver cómo añadir una."
   );
 });
