@@ -303,18 +303,18 @@ que tengas que tocar nada:
 - Si sales de la app o bloqueas el móvil, deja de escuchar automáticamente
   (no puede seguir en segundo plano, como ya se explicó arriba), y retoma
   al volver a abrirla.
-- **Di "calla" para que se pare al momento.** Es la única palabra que lo
-  interrumpe — hablar por encima sin decirla no lo corta, termina su frase
-  igual. Se eligió una única palabra fija a propósito: el micrófono capta
-  también la propia voz de Jarvis por el altavoz (no hay cancelación de eco
-  de hardware en este montaje), así que intentar adivinar "esto es el
-  usuario interrumpiendo" a partir de cualquier cosa que oiga era poco
-  fiable — con una palabra exacta no hay ambigüedad posible: ningún eco de
-  su propia voz va a transcribirse como "calla" por casualidad. Esta
-  función se quitó y se volvió a poner un par de veces por fallos de
-  fiabilidad — si vuelve a fallar, dilo con un ejemplo concreto de qué
-  pasó (¿se congeló? ¿dejó de escuchar? ¿en qué momento?) para poder
-  arreglarlo de raíz en vez de quitarlo otra vez.
+- Jarvis siempre termina su frase mientras responde — no se corta a mitad.
+  Se intentó varias veces una función para interrumpirle con la voz (una
+  palabra tipo "calla"), incluida una vuelta final con todos los arreglos
+  de fiabilidad conocidos aplicados a la vez — y aun así volvió a fallar
+  (el micrófono dejaba de escuchar de verdad). La causa de fondo: exigía
+  que el micrófono y el altavoz funcionaran a la vez todo el rato en vez
+  de solo cuando toca escuchar, y eso resultó ser demasiado poco fiable en
+  este montaje concreto. Se retira de forma definitiva — no se va a volver
+  a intentar sin cambiar el enfoque técnico de raíz (ej. un único motor de
+  audio compartido con cancelación de eco real, un proyecto bastante más
+  grande) — a cambio de que lo básico (escuchar, pensar, hablar) sea
+  sólido.
 - **Botón de mutear, para cortar la espera del silencio.** Mientras te está
   escuchando aparece un botón redondo (icono de micro tachado) abajo en
   pantalla. Por defecto no hace falta tocarlo — Jarvis manda lo que has
