@@ -55,6 +55,11 @@ targets:
           - App-prefs
           - camera
           - photos-redirect
+          - https
+          - googleapp
+          - google
+          - shortcuts
+          - marca
           - maps
           - tel
           - facetime

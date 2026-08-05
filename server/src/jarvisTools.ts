@@ -36,12 +36,13 @@ export function createJarvisToolServer(callOnPhone: ToolCallProxy) {
             "photos", "calendar", "reminders", "settings", "whatsapp", "spotify",
             "instagram", "tiktok", "youtube", "gmail", "chrome", "teams",
             "app_store", "music", "notes", "voice_memos", "files",
+            "safari", "google", "shortcuts", "marca",
             "chatgpt", "claude", "netflix", "prime_video", "movistar_plus",
             "hbo_max", "brawl_stars", "clash_royale", "capcut", "canva",
             "clock", "weather", "liftoff_gym", "rider_stunt_bike"
           ]),
           query_or_recipient: z.string().optional().describe(
-            "Opcional: dirección para maps/google_maps, destinatario para messages/mail/phone/whatsapp, término de búsqueda para youtube/app_store/chrome."
+            "Opcional: dirección para maps/google_maps, destinatario para messages/mail/phone/whatsapp, término de búsqueda para youtube/app_store/chrome/safari/google."
           )
         },
         async (args) => ({

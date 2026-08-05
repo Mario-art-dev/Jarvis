@@ -25,6 +25,7 @@ struct AppLauncherTool: JarvisTool {
                     "photos", "calendar", "reminders", "settings", "whatsapp", "spotify",
                     "instagram", "tiktok", "youtube", "gmail", "chrome", "teams",
                     "app_store", "music", "notes", "voice_memos", "files",
+                    "safari", "google", "shortcuts", "marca",
                     "chatgpt", "claude", "netflix", "prime_video", "movistar_plus",
                     "hbo_max", "brawl_stars", "clash_royale", "capcut", "canva",
                     "clock", "weather", "liftoff_gym", "rider_stunt_bike"
@@ -132,6 +133,25 @@ struct AppLauncherTool: JarvisTool {
             return [URL(string: "voicememos://")].compactMap { $0 }
         case "files":
             return [URL(string: "shareddocuments://")].compactMap { $0 }
+        case "safari":
+            // Safari has no scheme of its own — it's just the default
+            // handler for https, so opening any https URL lands there.
+            let url = extra.isEmpty
+                ? URL(string: "https://www.google.com")
+                : URL(string: "https://www.google.com/search?q=\(encoded)")
+            return [url].compactMap { $0 }
+        case "google":
+            // googleapp:// is the current scheme for the Google app;
+            // google:// is the older one, kept as a fallback for whichever
+            // version happens to be installed.
+            let url = extra.isEmpty
+                ? [URL(string: "googleapp://"), URL(string: "google://")]
+                : [URL(string: "googleapp://search?q=\(encoded)"), URL(string: "google://search?q=\(encoded)")]
+            return url.compactMap { $0 }
+        case "shortcuts":
+            return [URL(string: "shortcuts://")].compactMap { $0 }
+        case "marca":
+            return [URL(string: "marca://")].compactMap { $0 }
         case "chatgpt":
             return [URL(string: "chatgpt://")].compactMap { $0 }
         case "claude":
