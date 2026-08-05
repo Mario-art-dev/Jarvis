@@ -28,6 +28,34 @@ spanish_voices() {
   say -v '?' | sed -n 's/^\(.*[^ ]\)  *\(es[_-][A-Z][A-Z]\) *#.*/\1|\2/p'
 }
 
+# tr solo toca los bytes ASCII, así que los acentos (2 bytes en UTF-8) pasan
+# intactos: "Mónica" -> "mónica", que es justo lo que queremos comparar.
+lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
+
+# "Jorge (Mejorada)" -> "Jorge", para que pedir "Jorge" valga para cualquiera
+# de sus versiones.
+base_name() { printf '%s' "${1%% (*}"; }
+
+# Cuanto más bajo, mejor calidad. macOS puede listar la versión mejorada de
+# una voz como una entrada aparte, y es la que interesa.
+quality_rank() {
+  case "$(lower "$1")" in
+    *premium*) echo 0 ;;
+    *mejorada*|*enhanced*) echo 1 ;;
+    *) echo 2 ;;
+  esac
+}
+
+# Sexo de las voces en español de macOS, para que la lista sea útil de un
+# vistazo. Si sale una que no conozco, simplemente no se anota.
+voice_gender() {
+  case "$(lower "$(base_name "$1")")" in
+    jorge|juan|diego|carlos|enrique) echo "hombre" ;;
+    mónica|monica|marisol|paulina|angelica|angélica|soledad|isabela) echo "mujer" ;;
+    *) echo "" ;;
+  esac
+}
+
 show_upgrade_hint() {
   cat <<'EOF'
 
@@ -59,10 +87,14 @@ if [ "${1:-}" = "--list" ] || [ "${1:-}" = "-l" ]; then
   echo "Voces en español instaladas en este Mac:"
   echo ""
   while IFS='|' read -r name locale; do
-    printf "  %-20s %s\n" "$name" "$locale"
+    gender="$(voice_gender "$name")"
+    [ -n "$gender" ] && gender="($gender)"
+    printf "  %-24s %-8s %s\n" "$name" "$locale" "$gender"
   done <<< "$VOICES"
   echo ""
-  echo "Para escuchar una y dejarla fija:  ./scripts/setup-mac-voice.sh \"Mónica\""
+  echo "Para escuchar una y dejarla fija:  ./scripts/setup-mac-voice.sh \"Jorge\""
+  echo "Si tienes la versión mejorada de una voz, basta con poner el nombre a"
+  echo "secas: se coge la mejor versión que haya."
   show_upgrade_hint
   exit 0
 fi
@@ -94,9 +126,23 @@ if [ -z "$REQUESTED" ]; then
   echo "==> No has dicho ninguna, pruebo con \"$REQUESTED\"."
 fi
 
-# Se compara sin distinguir mayúsculas por comodidad, pero lo que se guarda es
-# el nombre tal cual lo escribe macOS: `say -v` sí distingue.
-MATCHED="$(grep -iF "$REQUESTED|" <<< "$VOICES" | head -1 | cut -d'|' -f1 || true)"
+# Se compara sin distinguir mayúsculas y admitiendo el nombre a secas
+# ("Jorge" vale para "Jorge (Mejorada)"), pero lo que se guarda es el nombre
+# tal cual lo escribe macOS: `say -v` sí distingue. Entre varias versiones de
+# la misma voz gana la de mejor calidad.
+MATCHED=""
+MATCHED_RANK=9
+while IFS='|' read -r name locale; do
+  if [ "$(lower "$name")" = "$(lower "$REQUESTED")" ] ||
+     [ "$(lower "$(base_name "$name")")" = "$(lower "$(base_name "$REQUESTED")")" ]; then
+    rank="$(quality_rank "$name")"
+    if [ "$rank" -lt "$MATCHED_RANK" ]; then
+      MATCHED="$name"
+      MATCHED_RANK="$rank"
+    fi
+  fi
+done <<< "$VOICES"
+
 if [ -z "$MATCHED" ]; then
   echo "ERROR: no tienes instalada una voz en español llamada \"$REQUESTED\"." >&2
   echo "" >&2
@@ -105,6 +151,9 @@ if [ -z "$MATCHED" ]; then
   echo "" >&2
   echo "No se ha cambiado nada." >&2
   exit 1
+fi
+if [ "$MATCHED" != "$REQUESTED" ]; then
+  echo "==> Uso \"$MATCHED\", que es la mejor versión que tienes de esa voz."
 fi
 REQUESTED="$MATCHED"
 

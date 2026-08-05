@@ -52,6 +52,31 @@ interface SayVoice {
   locale: string;
 }
 
+/**
+ * When macOS has downloaded a better version of a voice it can appear as a
+ * separate entry — "Jorge" and "Jorge (Mejorada)" side by side — and the
+ * better one is exactly what someone went to the trouble of downloading.
+ * Lower is better.
+ */
+function qualityRank(name: string): number {
+  const n = name.toLowerCase();
+  if (n.includes("premium")) return 0;
+  if (n.includes("enhanced") || n.includes("mejorada")) return 1;
+  return 2;
+}
+
+/** "Jorge (Mejorada)" -> "jorge", so a plain name matches every variant. */
+function baseName(name: string): string {
+  return name.replace(/\s*\(.*\)\s*$/, "").trim().toLowerCase();
+}
+
+/** Best-quality voice among those matching, or undefined if none do. */
+function bestMatch(voices: SayVoice[], matches: (v: SayVoice) => boolean): SayVoice | undefined {
+  return voices
+    .filter(matches)
+    .sort((a, b) => qualityRank(a.name) - qualityRank(b.name))[0];
+}
+
 function listVoices(): Promise<SayVoice[]> {
   return new Promise((resolve) => {
     const say = spawn("say", ["-v", "?"]);
@@ -93,11 +118,13 @@ async function resolveVoice(): Promise<string | null> {
   }
 
   // An explicit choice wins, but only if it's really installed — a typo in
-  // .env shouldn't leave Jarvis mute.
+  // .env shouldn't leave Jarvis mute. Asking for "Jorge" also accepts
+  // "Jorge (Mejorada)": nobody downloads the better version and then means
+  // the worse one.
   if (MAC_VOICE) {
-    const exact = voices.find((v) => v.name.toLowerCase() === MAC_VOICE.toLowerCase());
-    if (exact) {
-      cachedVoice = exact.name;
+    const chosen = bestMatch(voices, (v) => baseName(v.name) === baseName(MAC_VOICE));
+    if (chosen) {
+      cachedVoice = chosen.name;
       return cachedVoice;
     }
     console.warn(
@@ -106,7 +133,7 @@ async function resolveVoice(): Promise<string | null> {
   }
 
   for (const preferred of PREFERRED_VOICES) {
-    const found = voices.find((v) => v.name.toLowerCase() === preferred.toLowerCase());
+    const found = bestMatch(voices, (v) => baseName(v.name) === preferred.toLowerCase());
     if (found) {
       cachedVoice = found.name;
       return cachedVoice;
@@ -114,7 +141,7 @@ async function resolveVoice(): Promise<string | null> {
   }
 
   // Any Spanish voice beats falling through to no local voice at all.
-  const anySpanish = voices.find((v) => v.locale.toLowerCase().startsWith("es"));
+  const anySpanish = bestMatch(voices, (v) => v.locale.toLowerCase().startsWith("es"));
   cachedVoice = anySpanish?.name ?? null;
   return cachedVoice;
 }
