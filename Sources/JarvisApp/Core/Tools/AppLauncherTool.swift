@@ -22,7 +22,7 @@ struct AppLauncherTool: JarvisTool {
                 "type": "string",
                 "enum": [
                     "maps", "google_maps", "mail", "messages", "phone", "facetime", "camera",
-                    "calendar", "reminders", "settings", "whatsapp", "spotify",
+                    "photos", "calendar", "reminders", "settings", "whatsapp", "spotify",
                     "instagram", "tiktok", "youtube", "gmail", "chrome", "teams",
                     "app_store", "music", "notes", "voice_memos", "files",
                     "chatgpt", "claude", "netflix", "prime_video", "movistar_plus",
@@ -87,6 +87,10 @@ struct AppLauncherTool: JarvisTool {
             return [URL(string: "facetime:\(extra)")].compactMap { $0 }
         case "camera":
             return [URL(string: "camera://")].compactMap { $0 }
+        case "photos":
+            // photos-redirect:// is the scheme that actually opens Photos;
+            // the more obvious-looking photos:// isn't handled by it.
+            return [URL(string: "photos-redirect://")].compactMap { $0 }
         case "calendar":
             return [URL(string: "calshow://")].compactMap { $0 }
         case "reminders":

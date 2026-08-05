@@ -49,7 +49,12 @@ targets:
           # tunnel, never on the open internet.
           NSAllowsArbitraryLoads: true
         LSApplicationQueriesSchemes:
+          # Every scheme AppLauncherTool might open has to be listed here —
+          # canOpenURL returns false for anything undeclared, which the tool
+          # reports as "app not installed" even when it is.
           - App-prefs
+          - camera
+          - photos-redirect
           - maps
           - tel
           - facetime
