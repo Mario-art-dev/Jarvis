@@ -62,6 +62,19 @@ struct ConversationView: View {
             Button("Archivo") { activeImageSource = .file }
             Button("Cancelar", role: .cancel) { engine.cancelImageRequest() }
         }
+        .sheet(isPresented: $engine.showCameraGlance) {
+            CameraCapturePicker(
+                onPicked: { attachment in
+                    engine.showCameraGlance = false
+                    Task { await engine.handlePickedImages([attachment]) }
+                },
+                onCancel: {
+                    engine.showCameraGlance = false
+                    engine.cancelImageRequest()
+                }
+            )
+            .ignoresSafeArea()
+        }
         .sheet(item: $activeImageSource) { source in
             switch source {
             case .library:

@@ -8,6 +8,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { createJarvisToolServer } from "./jarvisTools.js";
 import { loadProfile } from "./profile.js";
+import { loadFamilyReferencePhotos } from "./family.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const AUTH_TOKEN = process.env.JARVIS_SERVER_TOKEN;
@@ -83,8 +84,14 @@ tiendas...), busca opciones y reseñas reales por internet, decide y \
 explica el motivo, y abre mcp__jarvis__open_app con target=maps o \
 google_maps en ese sitio para que pueda ir — nunca lees reseñas dentro \
 de la propia app Maps, la recomendación siempre sale de la búsqueda web. \
-Si te envían una foto (llega como imagen adjunta), analízala y responde \
-con naturalidad, como si la vieras — porque la ves. Con \
+Si te envían una foto, o el usuario apunta la cámara y dice algo como "mira \
+esto" o "¿qué ves?", analízala y reacciona con naturalidad y brevedad, como \
+si la estuvieras viendo en el momento — porque la ves. Si junto a esa foto \
+recibes fotos de referencia de la familia (cada una etiquetada con el \
+nombre de quién es), compáralas con la nueva foto: si con razonable \
+confianza reconoces a alguien, dirígete a él o ella por su nombre y usa lo \
+que ya sepas de esa persona; si no estás seguro, no lo afirmes ni lo \
+adivines — responde con naturalidad sin mencionar quién es. Con \
 mcp__jarvis__clock_action puedes crear alarmas y temporizadores nuevos, \
 pero nunca leer alarmas existentes, decir cuánto queda de un temporizador \
 ni controlar el cronómetro — Apple no lo permite a ninguna app. Si no \
@@ -161,13 +168,18 @@ wss.on("connection", (ws: WebSocket) => {
       const text = String(msg.text ?? "");
       if (!text.trim()) return;
 
-      // Photos the user attached (via the "te voy a enviar una foto" flow)
-      // ride along as image content blocks in the same turn, instead of a
-      // plain string prompt.
+      // Photos the user attached (via the "te voy a enviar una foto" flow,
+      // or the "mira esto" direct-camera glance) ride along as image content
+      // blocks in the same turn, instead of a plain string prompt.
       const images: Array<{ media_type?: string; data?: string }> = Array.isArray(msg.images) ? msg.images : [];
       const validImages = images.filter(
         (img): img is { media_type: string; data: string } => typeof img.media_type === "string" && typeof img.data === "string"
       );
+
+      // Reference photos of the family (server/family/*.jpg, see family.ts)
+      // ride along first so Claude can compare them against whatever the
+      // user just sent and try to recognize who's in frame.
+      const familyPhotos = validImages.length > 0 ? loadFamilyReferencePhotos() : [];
 
       const prompt = validImages.length > 0
         ? (async function* () {
@@ -176,6 +188,19 @@ wss.on("connection", (ws: WebSocket) => {
               message: {
                 role: "user" as const,
                 content: [
+                  ...(familyPhotos.length > 0
+                    ? [{
+                        type: "text" as const,
+                        text: "Fotos de referencia de la familia, para que puedas reconocer a alguien en la foto de abajo si aparece (nombre de cada una entre paréntesis):"
+                      }]
+                    : []),
+                  ...familyPhotos.flatMap((photo) => [
+                    { type: "text" as const, text: `(${photo.name})` },
+                    {
+                      type: "image" as const,
+                      source: { type: "base64" as const, media_type: photo.mediaType, data: photo.data }
+                    }
+                  ]),
                   { type: "text" as const, text },
                   ...validImages.map((img) => ({
                     type: "image" as const,

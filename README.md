@@ -391,6 +391,30 @@ Con los dos creados, podrás decir cosas como *"Jarvis, ponme una alarma a las 7
 
 Si en cualquier momento le dices algo que combine una palabra de foto/imagen/archivo con una palabra de enviar/mandar (ej. *"Jarvis, te voy a enviar una foto de este ejercicio, ayúdame a resolverlo"*), aparece un menú con tres opciones: **Fototeca**, **Cámara** y **Archivo**. Eliges una, seleccionas o haces la foto, y se manda junto con lo que le pediste — Claude la ve de verdad y responde según lo que aparezca en la imagen. No requiere ningún Atajo ni configuración adicional, funciona directamente. "Archivo" por ahora solo admite imágenes (no PDFs u otros documentos).
 
+## "Mira esto" — Jarvis reacciona a lo que ve por la cámara
+
+Frases como **"mira esto"**, **"¿qué ves?"**, **"echa un vistazo"** o
+**"reconoces esto"** abren la cámara directamente (sin el menú de arriba) y
+lo que fotografíes se manda junto con la frase, para una reacción rápida y
+espontánea en vez de un análisis formal — apunta y pregunta, como enseñarle
+algo a alguien en persona. Son frases fijas a propósito (no solo la palabra
+"mira", que es muletilla habitual al hablar) para que no se dispare la
+cámara por accidente con la escucha continua activada.
+
+## Que Jarvis reconozca a la familia
+
+Si pones una foto de cada persona en `server/family/` (ej. `Laura.jpg`,
+`Mario.jpg` — instrucciones completas en `server/family/README.md`), cada
+vez que le enseñes algo con la cámara (con "mira esto" o el menú de fotos),
+Jarvis las compara contra esas fotos de referencia. Si reconoce a alguien
+con bastante confianza, le habla por su nombre y usa lo que ya sabe de esa
+persona (lo guardado con `remember_fact`); si no está seguro, no se
+inventa quién eres. No es reconocimiento facial biométrico de verdad —es
+Claude comparando imágenes con buen criterio—, así que funciona mejor con
+fotos de referencia claras, de frente y bien iluminadas, y puede fallar
+alguna vez. Las fotos de la familia se quedan solo en el Mac (excluidas del
+repositorio de git), igual que cualquier otra foto que le mandes a Jarvis.
+
 ## Crear y leer archivos (funciona directo, sin Atajos)
 
 A diferencia de Notas y Reloj, esto no necesita ningún Atajo: iOS le da a

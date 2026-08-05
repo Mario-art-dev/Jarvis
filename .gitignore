@@ -13,3 +13,10 @@ dist/
 .env
 .jarvis-session-id
 .jarvis-profile.md
+
+# Fotos de referencia de la familia (server/family/README.md) — personales,
+# no van al repo.
+server/family/*.jpg
+server/family/*.jpeg
+server/family/*.png
+server/family/*.webp

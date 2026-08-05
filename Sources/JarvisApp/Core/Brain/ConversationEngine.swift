@@ -24,6 +24,11 @@ final class ConversationEngine: ObservableObject {
     /// the Fototeca/Cámara/Archivo menu while this holds the request text,
     /// which gets sent together with whatever image the user picks.
     @Published var showImageSourceMenu = false
+    /// Set when the user asked Jarvis to look at something right now (ej.
+    /// "mira esto", "¿qué ves?") — the view jumps straight to the camera,
+    /// skipping the source picker, so it feels like a glance instead of a
+    /// deliberate "attach a file" flow.
+    @Published var showCameraGlance = false
     private var pendingImagePrompt: String?
 
     private let config: AppConfig
@@ -47,6 +52,12 @@ final class ConversationEngine: ObservableObject {
     func handleUserUtterance(_ text: String) async {
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         transcript.append(TranscriptEntry(speaker: "Tú", text: text))
+
+        if containsVisionGlanceTrigger(text) {
+            pendingImagePrompt = text
+            showCameraGlance = true
+            return
+        }
 
         if containsImageTrigger(text) {
             pendingImagePrompt = text
@@ -109,6 +120,21 @@ final class ConversationEngine: ObservableObject {
         let mentionsPhoto = normalized.contains("foto") || normalized.contains("imagen") || normalized.contains("archivo")
         let mentionsSend = normalized.contains("enviar") || normalized.contains("mandar") || normalized.contains("envio") || normalized.contains("mando")
         return mentionsPhoto && mentionsSend
+    }
+
+    /// Detects "look at this" phrases ("mira esto", "¿qué ves?", "echa un
+    /// vistazo", "reconoces esto/a quién es") — deliberately specific fixed
+    /// phrases rather than a loose keyword like "mira" alone, since that's a
+    /// common filler word in casual Spanish and continuous listening would
+    /// otherwise open the camera constantly by accident.
+    private func containsVisionGlanceTrigger(_ text: String) -> Bool {
+        let normalized = text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+        let phrases = [
+            "mira esto", "mirame esto", "que ves", "que es esto",
+            "echa un vistazo", "echale un vistazo", "hechale un vistazo",
+            "reconoces esto", "reconoces a", "quien soy", "sabes quien soy"
+        ]
+        return phrases.contains { normalized.contains($0) }
     }
 
     private func speak(_ text: String) async {
