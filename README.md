@@ -303,14 +303,15 @@ que tengas que tocar nada:
 - Si sales de la app o bloqueas el móvil, deja de escuchar automáticamente
   (no puede seguir en segundo plano, como ya se explicó arriba), y retoma
   al volver a abrirla.
-- **Di "calla" para que se pare al momento.** Es la única palabra que lo
-  interrumpe — hablar por encima sin decirla no lo corta, termina su frase
-  igual. Se eligió una única palabra fija a propósito: el micrófono capta
-  también la propia voz de Jarvis por el altavoz (no hay cancelación de eco
-  de hardware en este montaje), así que intentar adivinar "esto es el
-  usuario interrumpiendo" a partir de cualquier cosa que oiga era poco
-  fiable — con una palabra exacta no hay ambigüedad posible: ningún eco de
-  su propia voz va a transcribirse como "calla" por casualidad.
+- Jarvis siempre termina su frase mientras responde — no se corta a mitad.
+  Se intentó varias veces una función para interrumpirle con la voz (una
+  palabra tipo "calla"), pero exigía que el micrófono y el altavoz
+  funcionaran a la vez todo el rato en vez de solo cuando toca escuchar, y
+  eso hacía que el reconocimiento de voz de Apple arrancara y parara con
+  mucha más frecuencia de la necesaria — lo cual, tras varias vueltas,
+  resultó ser la causa de que a veces dejara de responder por voz sin más.
+  Se retiró definitivamente a cambio de que lo básico (escuchar, pensar,
+  hablar) sea sólido.
 - **Botón de mutear, para cortar la espera del silencio.** Mientras te está
   escuchando aparece un botón redondo (icono de micro tachado) abajo en
   pantalla. Por defecto no hace falta tocarlo — Jarvis manda lo que has

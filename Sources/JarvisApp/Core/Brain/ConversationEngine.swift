@@ -1,5 +1,4 @@
 import Foundation
-import Combine
 import UIKit
 import UserNotifications
 
@@ -46,9 +45,6 @@ final class ConversationEngine: ObservableObject {
     private let config: AppConfig
     private let toolRegistry = ToolRegistry()
     private lazy var serverClient = JarvisServerClient(toolRegistry: toolRegistry)
-
-    private var interruptWatch: AnyCancellable?
-    private var wasInterrupted = false
 
     init(config: AppConfig) {
         self.config = config
@@ -162,8 +158,6 @@ final class ConversationEngine: ObservableObject {
     /// deliberately left alone here — see JarvisServerClient's timeout for
     /// how that case now resolves instead of hanging forever too.
     func handleAppBackgrounded() {
-        interruptWatch?.cancel()
-        interruptWatch = nil
         switch state {
         case .listening:
             speech.stopListening()
@@ -213,80 +207,18 @@ final class ConversationEngine: ObservableObject {
 
     private func speak(_ text: String) async {
         state = .speaking
-        wasInterrupted = false
         do {
             let elevenLabs = ElevenLabsClient(apiKey: config.elevenLabsAPIKey, voiceID: config.elevenLabsVoiceID)
             let audioData = try await elevenLabs.synthesizeSpeech(text: text)
-
-            startInterruptWatch()
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                 audioPlayer.play(data: audioData) {
                     continuation.resume()
                 }
             }
-            stopInterruptWatch()
         } catch {
             lastError = error.localizedDescription
-            stopInterruptWatch()
         }
-
-        if wasInterrupted {
-            wasInterrupted = false
-            // Hand off to the normal listening/silence-detection flow on
-            // the SAME still-running mic session, instead of cutting the
-            // user off at whatever they'd said the instant "calla" was
-            // detected — so they can keep talking after that word.
-            state = .listening
-            return
-        }
-        // Not interrupted: stop the listening session that was only
-        // running to catch "calla", so beginListeningIfIdle() starts a
-        // clean one for the user's next utterance.
-        speech.stopListening()
         state = .idle
-    }
-
-    /// While Jarvis talks, the mic stays on listening for one specific word
-    /// — "calla" — so you can cut him off, without trying to guess at
-    /// interruptions from anything else picked up (including his own voice
-    /// echoing back through the speaker, which the mic hears too on this
-    /// setup — no hardware echo cancellation). A fixed keyword sidesteps
-    /// that entirely: no echo is going to transcribe as "calla" by
-    /// accident, so it doesn't need comparing against what's being said.
-    private func startInterruptWatch() {
-        // Synchronous fast path when already authorized (the normal case
-        // after the first launch) — going through the async
-        // requestAuthorization callback every single time Jarvis speaks
-        // risked it landing late, after the mic/state had already moved on
-        // to something else, and starting the mic back up at the wrong
-        // moment.
-        if speech.isAuthorized {
-            if !speech.isListening { speech.startListening() }
-        } else {
-            speech.requestAuthorization { [weak self] granted in
-                guard let self, granted, !self.speech.isListening else { return }
-                self.speech.startListening()
-            }
-        }
-        interruptWatch = speech.$transcript
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] heard in
-                self?.evaluatePossibleInterruption(heard)
-            }
-    }
-
-    private func stopInterruptWatch() {
-        interruptWatch?.cancel()
-        interruptWatch = nil
-    }
-
-    private func evaluatePossibleInterruption(_ heard: String) {
-        guard state == .speaking, !wasInterrupted else { return }
-        let normalized = heard.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
-        guard normalized.contains("calla") else { return } // also matches "cállate"
-
-        wasInterrupted = true
-        audioPlayer.stop()
     }
 
     /// Buys extra run time from iOS for a turn that's mid-flight when the
