@@ -133,25 +133,41 @@ Symbol not found` y `claude-agent-sdk-darwin-x64`, es que tu Mac es
 demasiado antiguo: el paquete del servidor trae su propio ejecutable de
 Claude compilado, que requiere macOS 13 (Ventura) o más nuevo. Arréglalo
 apuntando el servidor a una versión antigua de Claude Code que sí funciona
-en macOS más viejos:
+en macOS más viejos, con este script:
+
+```bash
+cd Jarvis/server
+./scripts/fix-legacy-claude-code.sh
+```
+
+Instala `@anthropic-ai/claude-code@2.1.112` (sin binario nativo), y escribe
+en tu `server/.env` tanto `CLAUDE_CODE_EXECUTABLE_PATH` (leyendo del propio
+paquete instalado el nombre real de su ejecutable — cambia entre versiones:
+`cli.js`, `cli-wrapper.cjs`, etc. — en vez de asumir uno fijo) como
+`DISABLE_AUTOUPDATER=1`. Esta última es imprescindible: sin ella, Claude Code
+se autoactualiza solo la primera vez que se ejecuta (por ejemplo al hacer
+`claude login`), lo que trae de vuelta una versión nueva con el binario
+nativo incompatible y deshace el arreglo.
+
+Reinicia el servidor (`Ctrl+C` y `npm start`) al terminar. Si tu Mac es
+reciente y nunca te ha dado este error, no hace falta tocar nada de esto.
+
+Si prefieres hacerlo a mano en vez de usar el script:
 
 ```bash
 # Instala la versión antigua (sin binario nativo) en paralelo a la actual
-npm install -g @anthropic-ai/claude-code@2.1.112
+npm install -g @anthropic-ai/claude-code@2.1.112 --force
 
-# Averigua dónde se instaló
-npm root -g
-# Te dará algo como /usr/local/lib/node_modules — añádele
-# /@anthropic-ai/claude-code/cli.js
+# Confirma la versión Y el nombre exacto del ejecutable (campo "bin")
+cat "$(npm root -g)/@anthropic-ai/claude-code/package.json" | head -8
 ```
 
-Añade esa ruta completa a tu `server/.env`:
+Añade la ruta completa resultante a tu `server/.env`, junto con la variable
+que evita que se autoactualice:
 ```
 CLAUDE_CODE_EXECUTABLE_PATH=/usr/local/lib/node_modules/@anthropic-ai/claude-code/cli.js
+DISABLE_AUTOUPDATER=1
 ```
-
-Reinicia el servidor (`Ctrl+C` y `npm start`). Si tu Mac es reciente y
-nunca te ha dado este error, no hace falta tocar nada de esto.
 
 **Averigua la IP de ese ordenador** en tu red local (macOS: Ajustes →
 Wi-Fi → Detalles → IP; o `ipconfig getifaddr en0` en Terminal). La usarás en
