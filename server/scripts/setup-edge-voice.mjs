@@ -12,6 +12,16 @@
 // server/src/edgeTts.ts), Jarvis sigue hablando con la voz del Mac sin que
 // tengas que tocar nada.
 
+import { webcrypto } from "node:crypto";
+
+// msedge-tts assumes the Web Crypto API is available as the global `crypto`,
+// which Node only provides unflagged from v19 onward (see server/src/edgeTts.ts
+// for the same fix on the server side — this script runs standalone, outside
+// the server, so it needs its own copy of the polyfill).
+if (!globalThis.crypto) {
+  globalThis.crypto = webcrypto;
+}
+
 import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
 import { writeFile, unlink, readFile } from "node:fs/promises";
 import { existsSync, copyFileSync } from "node:fs";
