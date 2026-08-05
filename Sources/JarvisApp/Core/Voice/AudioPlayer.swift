@@ -15,20 +15,10 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
 
     func play(data: Data, onFinish: (() -> Void)? = nil) {
         do {
-            // Plain .playback: not shared with the mic. A previous version
-            // ran the mic at the same time as this (to catch a "calla"
-            // interrupt word), sharing one .playAndRecord session between
-            // this and SpeechRecognizer — but that meant the mic had to
-            // start/stop far more often than a normal listen-think-speak
-            // cycle needs (once per Jarvis reply, not just once per user
-            // turn), which made SFSpeechRecognizer noticeably flakier about
-            // actually starting, and repeatedly caused Jarvis to stop
-            // responding to voice at all. Retired for good — a mute button
-            // (see ConversationView) covers "stop waiting for silence"
-            // without needing the mic and speaker to run together.
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
-            try session.setActive(true)
+            // Shares one audio session with SpeechRecognizer (so the mic can
+            // hear "calla" while this plays) — see SharedAudioSession for
+            // why this doesn't just call setCategory/setActive directly.
+            try SharedAudioSession.activateForSimultaneousPlayAndRecord()
 
             player = try AVAudioPlayer(data: data)
             player?.delegate = self

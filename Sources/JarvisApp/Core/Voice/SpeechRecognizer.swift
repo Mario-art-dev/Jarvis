@@ -34,9 +34,15 @@ final class SpeechRecognizer: NSObject, ObservableObject {
     private let audioEngine = AVAudioEngine()
 
     /// True once both Speech and mic permission are already granted — lets
-    /// requestAuthorization skip the async system call entirely and
-    /// complete synchronously instead, which is the overwhelmingly common
-    /// case after first launch.
+    /// callers that fire on every single turn (see ConversationEngine.
+    /// startInterruptWatch) skip the async request entirely and start
+    /// listening synchronously instead. Going through
+    /// SFSpeechRecognizer.requestAuthorization every time, even when
+    /// already authorized, still completes via an async callback — one
+    /// that could land late enough to fire after the mic/state had already
+    /// moved on to something else, occasionally starting the mic back up
+    /// at the wrong moment. Checking the already-known status directly
+    /// avoids that race for the overwhelmingly common case.
     var isAuthorized: Bool {
         SFSpeechRecognizer.authorizationStatus() == .authorized
             && AVAudioSession.sharedInstance().recordPermission == .granted
@@ -92,9 +98,11 @@ final class SpeechRecognizer: NSObject, ObservableObject {
 
     private func beginListening(with recognizer: SFSpeechRecognizer) {
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .measurement, options: [.duckOthers, .defaultToSpeaker])
-            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            // Shares one audio session with AudioPlayer (so the mic can
+            // hear "calla" while Jarvis is talking) — see
+            // SharedAudioSession for why this doesn't just call
+            // setCategory/setActive directly.
+            try SharedAudioSession.activateForSimultaneousPlayAndRecord()
 
             let newRequest = SFSpeechAudioBufferRecognitionRequest()
             newRequest.shouldReportPartialResults = true
@@ -129,6 +137,12 @@ final class SpeechRecognizer: NSObject, ObservableObject {
         }
     }
 
+    /// Deliberately does NOT deactivate the audio session — it's shared
+    /// with AudioPlayer (see SharedAudioSession), and deactivating it while
+    /// that's still mid-playback was exactly what silently interrupted
+    /// Jarvis's own voice before, with no error or callback to recover
+    /// from. Leaving a session active-but-idle is harmless; iOS reclaims it
+    /// on its own when the app backgrounds or another app needs the mic.
     func stopListening() {
         audioEngine.stop()
         audioEngine.inputNode.removeTap(onBus: 0)
@@ -138,7 +152,6 @@ final class SpeechRecognizer: NSObject, ObservableObject {
         task = nil
         isListening = false
         audioLevel = 0
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
     /// Cheap RMS-based level from the raw buffer, normalized to roughly
