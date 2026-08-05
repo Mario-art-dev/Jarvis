@@ -157,7 +157,12 @@ struct ConversationView: View {
                 beginListeningIfIdle()
             } else {
                 engine.isForeground = false
-                speech.stopListening()
+                // handleAppBackgrounded() stops the mic/speaker itself, in
+                // the order that matters (see its doc comment) — don't
+                // also call speech.stopListening() here first, that was
+                // deactivating the shared audio session out from under an
+                // in-progress AVAudioPlayer and freezing Jarvis until a
+                // force quit.
                 engine.handleAppBackgrounded()
             }
         }
