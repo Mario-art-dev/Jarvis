@@ -11,9 +11,20 @@ enum ServerError: Error, LocalizedError {
         case .missingConfig: return "Falta la URL o el token del servidor Jarvis. Configúralos en Ajustes."
         case .invalidURL: return "La URL del servidor no es válida."
         case .connectionClosed(let reason): return "Conexión con el servidor perdida: \(reason)"
-        case .timedOut: return "Jarvis tardó demasiado en responder — puede que la conexión se cortara. Inténtalo de nuevo."
+        case .timedOut:
+            return "Esto está llevando un rato. Sigo dándole vueltas en el servidor — vuelve a entrar en un momento y te cuento en cuanto termine."
         }
     }
+}
+
+/// Lets the watchdog Task below signal *why* the socket closed, so a
+/// deliberate timeout can be reported as such instead of as whatever
+/// generic URLError cancelling a socket happens to surface as. A reference
+/// type because the flag is set from inside a closure; both it and the
+/// reader run on the main actor (JarvisServerClient is @MainActor and Task
+/// inherits that isolation), so there's no concurrent access to guard.
+private final class TimeoutFlag {
+    var fired = false
 }
 
 /// Talks to server/ (a small Node process running the Claude Agent SDK,
@@ -71,18 +82,35 @@ final class JarvisServerClient: NSObject {
         // phone got backgrounded/suspended and the network dropped without
         // either side ever getting a close frame), which otherwise left
         // Jarvis stuck on "pensando" forever with nothing to wake it up.
-        // The Claude turn itself might still be running server-side even
-        // after this — if it finishes later, backgroundJobs.ts on the
-        // server catches the answer and delivers it next time the app
-        // reopens (see ConversationEngine.greet) instead of losing it.
+        //
+        // Deliberately generous (5 min): a genuinely long request ("escríbeme
+        // un libro") can legitimately take minutes, and giving up early on
+        // one of those would be worse than the freeze this guards against.
+        // Nothing is lost when it does fire either — the Claude turn keeps
+        // running server-side regardless, and backgroundJobs.ts catches the
+        // answer for delivery next time the app checks in (see
+        // ConversationEngine.deliverPendingResultIfAny).
+        let expired = TimeoutFlag()
         let watchdog = Task {
-            try? await Task.sleep(nanoseconds: 90_000_000_000)
+            try? await Task.sleep(nanoseconds: 300_000_000_000)
+            expired.fired = true
             ws.cancel(with: .goingAway, reason: nil)
         }
         defer { watchdog.cancel() }
 
         while true {
-            let message = try await ws.receive()
+            let message: URLSessionWebSocketTask.Message
+            do {
+                message = try await ws.receive()
+            } catch {
+                // Cancelling the socket above surfaces here as a generic
+                // URLError, so without this the user would see a cryptic
+                // system message instead of ServerError.timedOut's friendly
+                // "still working on it" wording.
+                if expired.fired { throw ServerError.timedOut }
+                throw error
+            }
+
             guard case .string(let jsonString) = message,
                   let data = jsonString.data(using: .utf8),
                   let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],

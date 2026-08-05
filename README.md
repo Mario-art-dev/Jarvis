@@ -463,13 +463,27 @@ Jarvis sigue pensando. Cuando termina:
 - **Si tarda más que ese margen**, iOS acaba congelando la app de todas
   formas (nadie puede evitar eso sin la app en primer plano) — pero la
   pregunta ya sigue corriendo en el Mac de forma independiente del móvil,
-  así que no se pierde: se guarda, y en cuanto vuelvas a abrir Jarvis, justo
-  después del saludo, te dice *"por cierto, terminé lo que me pidió antes:
-  ..."* en vez de que esa respuesta desaparezca sin más.
+  así que no se pierde: se guarda, y **en cuanto vuelvas a entrar en la
+  app** (no hace falta que la cierres y la abras de nuevo — basta con
+  volver a ella) te dice *"ya tengo lo que me pidió: ..."*. Si la respuesta
+  es larga (un libro, por ejemplo), aparece en pantalla en vez de leerse
+  en voz alta.
 
 Entre las dos cosas, prácticamente nunca deberías perder una respuesta por
 haberte ido de la app — la diferencia es solo si te enteras al momento (con
-notificación) o al volver a abrirla.
+notificación) o al volver a ella.
+
+**Botón "Continuar":** si en algún momento Jarvis se queda parado sin
+escuchar (el círculo en reposo y sin reaccionar), aparece abajo un botón
+para retomarlo sin tener que cerrar la app. Si además había una petición
+larga en marcha, el botón cambia a *"Ver si ya está listo"* y comprueba
+directamente si el servidor ya terminó.
+
+**Peticiones muy largas:** el móvil espera hasta 5 minutos por una
+respuesta antes de dejar de esperar. Si tarda más que eso, Jarvis te dice
+*"esto está llevando un rato, te aviso en cuanto lo tenga"* — y el trabajo
+continúa igualmente en el Mac, así que la respuesta llega igual por
+cualquiera de las dos vías de arriba.
 
 **Límites honestos:**
 - Esto solo cubre tareas que no necesitan el propio iPhone para completarse

@@ -34,6 +34,12 @@ final class ConversationEngine: ObservableObject {
     /// while the user has stepped away notify instead of trying to speak
     /// into a screen nobody's looking at. See handleUserUtterance.
     @Published var isForeground = true
+    /// True between "a request took so long the phone gave up waiting" and
+    /// "its result was finally delivered". The work itself continues on the
+    /// server regardless — this just lets the UI offer to go check on it
+    /// (see ConversationView's resume button) instead of pretending nothing
+    /// is outstanding.
+    @Published var awaitingLongTask = false
     private var pendingImagePrompt: String?
     private var backgroundTaskID: UIBackgroundTaskIdentifier = .invalid
 
@@ -62,14 +68,36 @@ final class ConversationEngine: ObservableObject {
         let greeting = "Buenas, señor. ¿En qué puedo ayudarle?"
         transcript.append(TranscriptEntry(speaker: "Jarvis", text: greeting))
         await speak(greeting)
+        await deliverPendingResultIfAny()
+    }
 
-        // If something you asked before closing the app finished running
-        // in the meantime (see server/src/backgroundJobs.ts), deliver it
-        // now instead of it sitting there silently done.
-        if let pendingResult = await serverClient.checkPendingResult(config: config),
-           !pendingResult.trimmingCharacters(in: .whitespaces).isEmpty {
-            let announcement = "Por cierto, terminé lo que me pidió antes: \(pendingResult)"
-            transcript.append(TranscriptEntry(speaker: "Jarvis", text: announcement))
+    /// Asks the server whether a turn finished while this phone wasn't
+    /// connected to receive it (see server/src/backgroundJobs.ts) and, if
+    /// so, delivers it now.
+    ///
+    /// Called both on app launch (from greet) and every time the app
+    /// returns to the foreground — that second case is what makes "ask for
+    /// something long, leave the app, come back" actually work. It used to
+    /// run only at launch, so returning to an app iOS had merely suspended
+    /// (rather than killed) meant the finished answer just sat on the
+    /// server unmentioned.
+    ///
+    /// Safe to call repeatedly: the server hands each result out at most
+    /// once, and this no-ops unless Jarvis is idle.
+    func deliverPendingResultIfAny() async {
+        guard state == .idle, config.isConfigured else { return }
+        guard let pendingResult = await serverClient.checkPendingResult(config: config),
+              !pendingResult.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+
+        awaitingLongTask = false
+        let announcement = "Ya tengo lo que me pidió: \(pendingResult)"
+        transcript.append(TranscriptEntry(speaker: "Jarvis", text: announcement))
+        // A long answer (ej. "escríbeme un libro") is unbearable read aloud
+        // and gets truncated by the notification anyway — put those on
+        // screen, speak only the short ones.
+        if pendingResult.count > 400 {
+            writtenResponse = announcement
+        } else {
             await speak(announcement)
         }
     }
@@ -97,6 +125,7 @@ final class ConversationEngine: ObservableObject {
         do {
             let finalText = try await serverClient.ask(text, config: config)
             endBackgroundTask()
+            awaitingLongTask = false
             transcript.append(TranscriptEntry(speaker: "Jarvis", text: finalText))
             if !isForeground {
                 // Stepped away while this was running — can't speak into a
@@ -114,9 +143,24 @@ final class ConversationEngine: ObservableObject {
             }
         } catch {
             endBackgroundTask()
-            lastError = error.localizedDescription
-            state = .idle
+            handleTurnFailure(error)
         }
+    }
+
+    /// A timeout isn't really a failure here — the server keeps working on
+    /// it and the answer gets picked up later (see
+    /// deliverPendingResultIfAny), so it gets a reassuring message and a
+    /// flag the UI can act on, rather than the red error alert every other
+    /// failure deserves.
+    private func handleTurnFailure(_ error: Error) {
+        if let serverError = error as? ServerError, case .timedOut = serverError {
+            awaitingLongTask = true
+            let note = "Esto está llevando un rato. Sigo trabajando en ello — te aviso en cuanto lo tenga."
+            transcript.append(TranscriptEntry(speaker: "Jarvis", text: note))
+        } else {
+            lastError = error.localizedDescription
+        }
+        state = .idle
     }
 
     /// Called once the user picked a source and Jarvis has the image(s) in
@@ -131,6 +175,7 @@ final class ConversationEngine: ObservableObject {
         do {
             let finalText = try await serverClient.ask(text, images: attachments, config: config)
             endBackgroundTask()
+            awaitingLongTask = false
             transcript.append(TranscriptEntry(speaker: "Jarvis", text: finalText))
             if !isForeground {
                 notifyCompletion(finalText)
@@ -140,8 +185,7 @@ final class ConversationEngine: ObservableObject {
             }
         } catch {
             endBackgroundTask()
-            lastError = error.localizedDescription
-            state = .idle
+            handleTurnFailure(error)
         }
     }
 

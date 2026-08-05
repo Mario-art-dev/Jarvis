@@ -69,9 +69,14 @@ struct ConversationView: View {
                     muteButton
                         .padding(.bottom, 36)
                         .transition(.opacity.combined(with: .scale))
+                } else if isPaused {
+                    resumeButton
+                        .padding(.bottom, 36)
+                        .transition(.opacity.combined(with: .scale))
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: engine.state == .listening)
+            .animation(.easeInOut(duration: 0.2), value: isPaused)
 
             if let written = engine.writtenResponse {
                 WrittenResponseView(text: written) {
@@ -183,7 +188,15 @@ struct ConversationView: View {
                 // while backgrounded — stopping an already-stopped
                 // recognizer is a harmless no-op.
                 speech.stopListening()
-                beginListeningIfIdle()
+                // Pick up anything that finished while you were away before
+                // re-arming the mic — this is what makes "ask for something
+                // long, leave, come back" actually tell you the result
+                // instead of silently dropping it. No-ops when there's
+                // nothing waiting, so the normal case is unaffected.
+                Task {
+                    await engine.deliverPendingResultIfAny()
+                    beginListeningIfIdle()
+                }
             } else {
                 engine.isForeground = false
                 engine.handleAppBackgrounded()
@@ -225,7 +238,7 @@ struct ConversationView: View {
             guard scenePhase == .active, engine.state != .idle else { return }
             let maxDuration: TimeInterval
             switch engine.state {
-            case .thinking: maxDuration = 100 // above JarvisServerClient's own 90s network watchdog
+            case .thinking: maxDuration = 320 // just above JarvisServerClient's own 5-min network watchdog
             case .speaking: maxDuration = 60  // generous for even a long spoken answer
             case .listening: maxDuration = 45 // generous for a long ramble with no pause
             case .idle: maxDuration = .infinity // unreachable, guarded above
@@ -277,6 +290,47 @@ struct ConversationView: View {
                 .background(Color.white.opacity(0.9))
                 .clipShape(Circle())
                 .shadow(color: .black.opacity(0.3), radius: 8)
+        }
+    }
+
+    /// "Paused": sitting idle with the mic genuinely not running. Normally
+    /// unreachable for more than an instant, since going idle immediately
+    /// re-arms listening — so if this is true and stays true, something
+    /// stopped the loop (a mic that refused to start, a long request the
+    /// phone gave up waiting on, the watchdog force-resetting a stuck
+    /// state). That's exactly when a manual way back in is worth offering.
+    private var isPaused: Bool {
+        config.isConfigured
+            && engine.state == .idle
+            && !speech.isListening
+            && engine.writtenResponse == nil
+    }
+
+    /// Picks up wherever things were left off: if a long request outlived
+    /// the phone's patience, that result is waiting on the server, so check
+    /// for it first; otherwise just get the mic going again. Covers both
+    /// "it was thinking" and "it was listening" without needing to know
+    /// which it was.
+    private var resumeButton: some View {
+        Button {
+            Task {
+                await engine.deliverPendingResultIfAny()
+                speech.stopListening()
+                beginListeningIfIdle()
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: engine.awaitingLongTask ? "tray.and.arrow.down.fill" : "play.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                Text(engine.awaitingLongTask ? "Ver si ya está listo" : "Continuar")
+                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+            }
+            .foregroundColor(.black)
+            .padding(.horizontal, 24)
+            .frame(height: 56)
+            .background(Color.white.opacity(0.9))
+            .clipShape(Capsule())
+            .shadow(color: .black.opacity(0.3), radius: 8)
         }
     }
 
