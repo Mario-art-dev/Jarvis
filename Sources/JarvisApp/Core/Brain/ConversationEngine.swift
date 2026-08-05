@@ -349,6 +349,14 @@ final class ConversationEngine: ObservableObject {
 
     private func speak(_ text: String) async {
         state = .speaking
+        // Ajustes → "Usar solo la voz del iPhone": skip the Mac and
+        // ElevenLabs entirely, so this never depends on the server being
+        // reachable or on any account's quota.
+        if config.preferPhoneVoice {
+            await systemVoice.speak(text)
+            state = .idle
+            return
+        }
         do {
             // The Mac's own voice first: free, unlimited, and no quota to run
             // out of. Returns nil if the Mac has no Spanish voice or the

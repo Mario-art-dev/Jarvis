@@ -20,13 +20,24 @@ struct SettingsView: View {
                         .foregroundColor(.secondary)
                 }
 
+                Section("Voz") {
+                    Toggle("Usar solo la voz del iPhone", isOn: $config.preferPhoneVoice)
+                    Text(config.preferPhoneVoice
+                        ? "Jarvis habla siempre con la voz del propio iPhone: no necesita al Mac ni a ElevenLabs para nada de esto. Para elegir cuál usa y que suene mejor: Ajustes del iPhone → Accesibilidad → Contenido hablado → Voces → Español, descarga una marcada como Mejorada o Premium (ej. Mónica, Jorge)."
+                        : "Con esto apagado, Jarvis intenta primero la voz del Mac, luego ElevenLabs, y solo si las dos fallan usa la del iPhone.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+
                 Section("ElevenLabs (voz)") {
                     SecureField("API key", text: $config.elevenLabsAPIKey)
                         .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
+                        .disabled(config.preferPhoneVoice)
                     TextField("Voice ID", text: $config.elevenLabsVoiceID)
                         .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
+                        .disabled(config.preferPhoneVoice)
                     Text("En elevenlabs.io/app → tu voz elegida (clonada o de la biblioteca) → copia su Voice ID. La API key está en tu perfil → API Keys.")
                         .font(.footnote)
                         .foregroundColor(.secondary)

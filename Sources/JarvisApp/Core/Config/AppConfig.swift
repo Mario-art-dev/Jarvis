@@ -10,16 +10,28 @@ final class AppConfig: ObservableObject {
     @Published var serverURL: String
     /// Must match JARVIS_SERVER_TOKEN in the server's .env
     @Published var serverToken: String
+    /// When on, Jarvis speaks only with the iPhone's own voice: it never asks
+    /// the Mac to synthesise and never calls ElevenLabs. Not a secret, so it
+    /// lives in UserDefaults rather than the Keychain.
+    @Published var preferPhoneVoice: Bool {
+        didSet { UserDefaults.standard.set(preferPhoneVoice, forKey: Self.preferPhoneVoiceKey) }
+    }
+
+    private static let preferPhoneVoiceKey = "com.mariomontesinos.jarvis.preferPhoneVoice"
 
     init() {
         elevenLabsAPIKey = SecureStore.get(.elevenLabsAPIKey) ?? ""
         elevenLabsVoiceID = SecureStore.get(.elevenLabsVoiceID) ?? ""
         serverURL = SecureStore.get(.serverURL) ?? ""
         serverToken = SecureStore.get(.serverToken) ?? ""
+        preferPhoneVoice = UserDefaults.standard.bool(forKey: Self.preferPhoneVoiceKey)
     }
 
+    /// The server connection is always required (that's where Claude runs);
+    /// ElevenLabs only matters when its voice will actually be used.
     var isConfigured: Bool {
-        !elevenLabsAPIKey.isEmpty && !elevenLabsVoiceID.isEmpty && !serverURL.isEmpty && !serverToken.isEmpty
+        guard !serverURL.isEmpty, !serverToken.isEmpty else { return false }
+        return preferPhoneVoice || (!elevenLabsAPIKey.isEmpty && !elevenLabsVoiceID.isEmpty)
     }
 
     func save() {
