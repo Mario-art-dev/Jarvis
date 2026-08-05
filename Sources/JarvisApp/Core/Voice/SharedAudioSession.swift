@@ -17,8 +17,15 @@ import AVFoundation
 enum SharedAudioSession {
     static func activateForSimultaneousPlayAndRecord() throws {
         let session = AVAudioSession.sharedInstance()
-        guard session.category != .playAndRecord || session.mode != .voiceChat else { return }
-        try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.duckOthers, .defaultToSpeaker, .allowBluetooth])
+        // .default, not .voiceChat: .voiceChat is tuned for phone-call-style
+        // audio, held to your ear, and applies noticeably quieter output
+        // gain even with .defaultToSpeaker set — that's what made Jarvis
+        // barely audible on speaker unless you held the phone right up to
+        // your ear. .default applies none of that call-specific processing
+        // while still allowing simultaneous record+playback under
+        // .playAndRecord, which is all this actually needs.
+        guard session.category != .playAndRecord || session.mode != .default else { return }
+        try session.setCategory(.playAndRecord, mode: .default, options: [.duckOthers, .defaultToSpeaker, .allowBluetooth])
         try session.setActive(true, options: .notifyOthersOnDeactivation)
     }
 }
