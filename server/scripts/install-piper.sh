@@ -125,13 +125,31 @@ echo "==> Comprobando que Piper arranca en este Mac..."
 # macOS pone en cuarentena lo descargado; sin esto el binario no abre.
 xattr -dr com.apple.quarantine "$PIPER_DIR" 2>/dev/null || true
 
-TEST_WAV="$(mktemp -t jarvis-piper).wav"
+# El binario busca sus librerías en @rpath, que en las builds de macOS de
+# Piper no apunta a ninguna parte útil. Indicárselo con DYLD_LIBRARY_PATH no
+# es fiable: la protección de integridad de macOS (SIP) descarta las
+# variables DYLD_* en muchos contextos. Grabar @executable_path como rpath
+# dentro del propio binario sí es permanente y SIP no puede quitarlo.
 PIPER_BIN_DIR="$(dirname "$PIPER_BIN")"
+if command -v install_name_tool >/dev/null 2>&1; then
+  if ! otool -l "$PIPER_BIN" 2>/dev/null | grep -q "path @executable_path "; then
+    echo "==> Grabando la ruta de las librerías dentro del binario..."
+    install_name_tool -add_rpath "@executable_path" "$PIPER_BIN" 2>/dev/null || true
+    # Cambiar el binario invalida su firma; re-firmarlo localmente evita que
+    # macOS lo mate al arrancar.
+    codesign --force --sign - "$PIPER_BIN" 2>/dev/null || true
+  fi
+else
+  echo "AVISO: no tienes install_name_tool (viene con las herramientas de" >&2
+  echo "línea de comandos de Xcode). Si la prueba falla, instálalas con:" >&2
+  echo "  xcode-select --install" >&2
+fi
 
-# Piper trae libespeak-ng y espeak-ng-data junto al ejecutable, pero su
-# @rpath no los resuelve solo en macOS ("Library not loaded:
-# @rpath/libespeak-ng.1.dylib"). Hay que señalarle su propia carpeta, y
-# ejecutarlo desde ahí para que encuentre también espeak-ng-data.
+TEST_WAV="$(mktemp -t jarvis-piper).wav"
+
+# DYLD_LIBRARY_PATH además del rpath grabado arriba: en los Macs donde SIP
+# no lo descarta, sirve de cinturón y tirantes. Se ejecuta desde su propia
+# carpeta para que encuentre también espeak-ng-data.
 if ! ( cd "$PIPER_BIN_DIR" && echo "Hola, soy Jarvis." | \
        DYLD_LIBRARY_PATH="$PIPER_BIN_DIR" DYLD_FALLBACK_LIBRARY_PATH="$PIPER_BIN_DIR" \
        "$PIPER_BIN" --model "$PIPER_DIR/$VOICE_ONNX" --output_file "$TEST_WAV" ) 2>/tmp/piper-test-error.txt; then
