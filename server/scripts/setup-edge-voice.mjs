@@ -38,7 +38,7 @@ const ENV_EXAMPLE = join(SERVER_DIR, ".env.example");
 const DEFAULT_VOICE = "es-ES-AlvaroNeural";
 // Matches server/src/edgeTts.ts's default, so what you hear here is the same
 // speed Jarvis actually uses — not Edge's slower out-of-the-box pace.
-const RATE = process.env.EDGE_TTS_RATE?.trim() || "+20%";
+const RATE = process.env.EDGE_TTS_RATE?.trim() || "+35%";
 
 function playFile(path) {
   return new Promise((resolve) => {

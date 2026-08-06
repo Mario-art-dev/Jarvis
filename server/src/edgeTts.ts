@@ -34,7 +34,7 @@ const DEFAULT_VOICE = "es-ES-AlvaroNeural";
 const EDGE_TTS_VOICE = process.env.EDGE_TTS_VOICE?.trim() || DEFAULT_VOICE;
 const DISABLED = process.env.EDGE_TTS_DISABLED === "1";
 /** A relative SSML rate, e.g. "+20%" or "-10%". Faster than Edge's own default. */
-const EDGE_TTS_RATE = process.env.EDGE_TTS_RATE?.trim() || "+20%";
+const EDGE_TTS_RATE = process.env.EDGE_TTS_RATE?.trim() || "+35%";
 
 /** Beyond this, synthesis is slow enough to be worse than the alternatives. */
 const MAX_CHARS = 4000;
