@@ -103,8 +103,39 @@ final class WakeWordListener: NSObject {
             guard let heard = result?.bestTranscription.formattedString,
                   Self.containsTrigger(heard) else { return }
             let callback = self.onTrigger
-            self.stop()
-            callback?()
+            // The only feedback possible with the screen locked — confirms
+            // "heard you, go ahead" without needing to look at the phone.
+            // stop() deactivates the audio session, which would cut the
+            // chime off mid-play if it ran right away, so it — and handing
+            // off to whatever listens for the actual command next — waits
+            // until the chime has actually finished.
+            let chimeDuration = self.playConfirmationChime()
+            DispatchQueue.main.asyncAfter(deadline: .now() + chimeDuration) { [weak self] in
+                self?.stop()
+                callback?()
+            }
+        }
+    }
+
+    private var chimePlayer: AVAudioPlayer?
+
+    /// A short two-tone beep, generated rather than shipped as an audio
+    /// asset for the same reason BackgroundKeepAlive's silence is — no
+    /// binary blob in the repo for something this simple. Kept in a
+    /// property (not a local variable) so ARC doesn't tear it down mid-play.
+    /// Returns how long it plays for, so the caller can wait that long
+    /// before tearing down the session — 0 if it couldn't play at all.
+    @discardableResult
+    private func playConfirmationChime() -> TimeInterval {
+        do {
+            let player = try AVAudioPlayer(data: Self.chimeWAV)
+            player.volume = 0.6
+            player.play()
+            chimePlayer = player
+            return player.duration
+        } catch {
+            // Missing the chime is not worth losing the trigger over.
+            return 0
         }
     }
 
@@ -134,5 +165,67 @@ final class WakeWordListener: NSObject {
         let scrubbed = String(folded.unicodeScalars.map { allowed.contains($0) ? Character($0) : " " })
         let collapsed = scrubbed.split(separator: " ").joined(separator: " ")
         return collapsed.contains(triggerPhrase)
+    }
+
+    /// Two short ascending tones (880Hz then 1320Hz, ~90ms each) — a quick
+    /// "mm-hm, go ahead" rather than a single flat beep. Faded in/out a few
+    /// milliseconds on each tone so there's no click at the edges.
+    private static let chimeWAV: Data = makeChimeWAV()
+
+    private static func makeChimeWAV() -> Data {
+        let sampleRate: Double = 22050
+        let toneDuration: Double = 0.09
+        let gapDuration: Double = 0.03
+        let fadeDuration: Double = 0.012
+        let frequencies: [Double] = [880, 1320]
+
+        var samples: [Int16] = []
+        for frequency in frequencies {
+            let toneSamples = Int(sampleRate * toneDuration)
+            let fadeSamples = Int(sampleRate * fadeDuration)
+            for i in 0..<toneSamples {
+                let t = Double(i) / sampleRate
+                var amplitude = 0.5
+                if i < fadeSamples {
+                    amplitude *= Double(i) / Double(fadeSamples)
+                } else if i > toneSamples - fadeSamples {
+                    amplitude *= Double(toneSamples - i) / Double(fadeSamples)
+                }
+                let value = amplitude * sin(2 * Double.pi * frequency * t)
+                samples.append(Int16(value * Double(Int16.max)))
+            }
+            if frequency != frequencies.last {
+                samples.append(contentsOf: repeatElement(0, count: Int(sampleRate * gapDuration)))
+            }
+        }
+
+        let channels: UInt16 = 1
+        let bitsPerSample: UInt16 = 16
+        let blockAlign = channels * (bitsPerSample / 8)
+        let byteRate = UInt32(sampleRate) * UInt32(blockAlign)
+        let dataSize = UInt32(samples.count * 2)
+
+        var data = Data()
+        func append(_ text: String) { data.append(contentsOf: Array(text.utf8)) }
+        func append(_ value: UInt32) { withUnsafeBytes(of: value.littleEndian) { data.append(contentsOf: $0) } }
+        func append(_ value: UInt16) { withUnsafeBytes(of: value.littleEndian) { data.append(contentsOf: $0) } }
+
+        append("RIFF")
+        append(UInt32(36) + dataSize)
+        append("WAVE")
+        append("fmt ")
+        append(UInt32(16))
+        append(UInt16(1)) // PCM
+        append(channels)
+        append(UInt32(sampleRate))
+        append(byteRate)
+        append(blockAlign)
+        append(bitsPerSample)
+        append("data")
+        append(dataSize)
+        for sample in samples {
+            withUnsafeBytes(of: sample.littleEndian) { data.append(contentsOf: $0) }
+        }
+        return data
     }
 }
