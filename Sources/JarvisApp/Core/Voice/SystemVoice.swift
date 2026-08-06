@@ -47,6 +47,14 @@ final class SystemVoice: NSObject, AVSpeechSynthesizerDelegate {
         finish()
     }
 
+    /// Voice picked by hand (see the "Carlos" comparison against Edge TTS) —
+    /// checked before any automatic ranking. Matched by name rather than by
+    /// `identifier` so it still applies after the OS swaps a downloaded
+    /// voice for its Enhanced/Premium version under the hood; matched
+    /// case-insensitively and ignoring any "(Mejorada)"/"(Enhanced)" suffix
+    /// for the same reason the Mac-voice scripts do it.
+    private static let preferredVoiceName = "Carlos"
+
     /// Picks the best Spanish voice actually installed, rather than whatever
     /// `AVSpeechSynthesisVoice(language:)` defaults to — that's the compact
     /// voice, the robotic one people think of as "the iPhone voice".
@@ -70,6 +78,15 @@ final class SystemVoice: NSObject, AVSpeechSynthesizerDelegate {
             // Same quality, prefer peninsular Spanish over other variants.
             return quality * 2 + (voice.language == "es-ES" ? 1 : 0)
         }
+
+        func baseName(_ voice: AVSpeechSynthesisVoice) -> String {
+            voice.name.replacingOccurrences(of: #"\s*\(.*\)\s*$"#, with: "", options: .regularExpression)
+        }
+
+        let preferred = spanish
+            .filter { baseName($0).caseInsensitiveCompare(preferredVoiceName) == .orderedSame }
+            .max { rank($0) < rank($1) }
+        if let preferred { return preferred }
 
         return spanish.max { rank($0) < rank($1) } ?? AVSpeechSynthesisVoice(language: "es-ES")
     }
