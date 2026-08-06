@@ -102,6 +102,7 @@ final class ConversationEngine: ObservableObject {
     /// Fallback voice for when ElevenLabs can't synthesise (see speak).
     private let systemVoice = SystemVoice()
     private var hasReportedVoiceFallback = false
+    private var hasReportedWakeWordFailure = false
 
     private let config: AppConfig
     private let toolRegistry = ToolRegistry()
@@ -343,6 +344,14 @@ final class ConversationEngine: ObservableObject {
     func handleAppForegrounded() {
         isForeground = true
         keepAlive.stop()
+        // Report before stopping — stop() is a full reset and clears this.
+        // Said once per launch, like the voice fallback: worth knowing that
+        // "Jarvis escucha" wasn't listening at all while you were away, not
+        // worth repeating every time you pick the phone up.
+        if wakeWordListener.failedToArm, !hasReportedWakeWordFailure {
+            hasReportedWakeWordFailure = true
+            lastError = "Mientras estabas fuera de la app no he podido quedarme escuchando el \"Jarvis escucha\": iOS no me dejó usar el micrófono en segundo plano. Suele pasar si otra app lo estaba usando, o si el iPhone cerró Jarvis del todo. Dentro de la app sí te escucho siempre."
+        }
         wakeWordListener.stop()
     }
 

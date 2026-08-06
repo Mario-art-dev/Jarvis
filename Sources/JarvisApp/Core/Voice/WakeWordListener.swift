@@ -39,25 +39,83 @@ final class WakeWordListener: NSObject {
     private var audioEngine: AVAudioEngine?
     private var onTrigger: (() -> Void)?
 
-    var isArmed: Bool { task != nil }
+    /// True when every attempt to arm was refused, so the caller can say so
+    /// instead of leaving the user talking to a phone that isn't listening.
+    private(set) var failedToArm = false
 
-    /// Starts listening for the phrase. Silently does nothing if anything
-    /// isn't available (permissions not yet granted, recognizer momentarily
-    /// unavailable, mic hardware not free) — this only ever runs
-    /// unattended, so there's no one to show an error to, and the app must
-    /// keep working normally regardless of whether this succeeds.
+    private var pendingRetry: DispatchWorkItem?
+    private var healthCheck: Timer?
+    private var attempt = 0
+    private var storedTrigger: (() -> Void)?
+
+    /// How long to wait before each attempt. The first is delayed on purpose:
+    /// arming happens immediately after the main recogniser was torn down,
+    /// and SFSpeechRecognizer reports itself unavailable for a moment right
+    /// after a task ends (SpeechRecognizer.startListening documents the same
+    /// thing and retries for it) — while the audio hardware is still being
+    /// handed over. All of these fit inside the ~30s iOS allows before
+    /// suspending an app that isn't playing or recording anything, which is
+    /// the real deadline: if recording never starts, the app is suspended
+    /// and the wake word is dead until you open it again.
+    /// The first is immediate on purpose: arming is triggered from
+    /// scenePhase `.inactive`, which fires while the app is still allowed to
+    /// start recording — a window worth catching, since starting a recording
+    /// once fully backgrounded is far more likely to be refused.
+    private static let attemptDelays: [TimeInterval] = [0, 0.6, 1.5, 3, 6, 12]
+
+    /// Starts listening for the phrase, retrying if the mic or recogniser
+    /// isn't ready yet. Every individual failure is silent (this runs
+    /// unattended, and the app must keep working regardless), but giving up
+    /// entirely sets `failedToArm` so it doesn't fail invisibly.
     func start(onTrigger: @escaping () -> Void) {
         guard task == nil else { return }
+        storedTrigger = onTrigger
+        attempt = 0
+        failedToArm = false
+        scheduleNextAttempt()
+    }
+
+    private func scheduleNextAttempt() {
+        pendingRetry?.cancel()
+        guard attempt < Self.attemptDelays.count else {
+            // Out of retries: the mic is genuinely unavailable to us right
+            // now (another app holding it, recording refused in the
+            // background, permissions revoked).
+            failedToArm = true
+            storedTrigger = nil
+            return
+        }
+        let delay = Self.attemptDelays[attempt]
+        attempt += 1
+
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, let trigger = self.storedTrigger else { return }
+            if !self.attemptStart(onTrigger: trigger) {
+                self.scheduleNextAttempt()
+            }
+        }
+        pendingRetry = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    /// One arming attempt. Returns false if anything wasn't ready, so the
+    /// caller can try again rather than the whole feature quietly ending
+    /// here — which is exactly what used to happen.
+    private func attemptStart(onTrigger: @escaping () -> Void) -> Bool {
+        guard task == nil else { return true }
         guard SFSpeechRecognizer.authorizationStatus() == .authorized,
               AVAudioSession.sharedInstance().recordPermission == .granted,
-              let recognizer, recognizer.isAvailable else { return }
+              let recognizer, recognizer.isAvailable else { return false }
 
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playAndRecord, mode: .default, options: [.duckOthers, .defaultToSpeaker, .allowBluetooth])
             try session.setActive(true)
         } catch {
-            return
+            // Very common on the first attempt: the main recogniser has just
+            // deactivated this same session and iOS hasn't finished the
+            // handover. Retrying is exactly right here.
+            return false
         }
 
         self.onTrigger = onTrigger
@@ -78,8 +136,8 @@ final class WakeWordListener: NSObject {
         // mic) — installing a tap with that format throws an uncatchable
         // exception, so bail out instead.
         guard format.sampleRate > 0 else {
-            stop()
-            return
+            teardown()
+            return false
         }
 
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak newRequest] buffer, _ in
@@ -90,14 +148,22 @@ final class WakeWordListener: NSObject {
             engine.prepare()
             try engine.start()
         } catch {
-            stop()
-            return
+            teardown()
+            return false
         }
 
         task = recognizer.recognitionTask(with: newRequest) { [weak self] result, error in
             guard let self else { return }
             if error != nil {
-                self.stop()
+                // Recognition dies on its own fairly often when it runs this
+                // long (silence timeouts, the system reclaiming it). Tearing
+                // down and re-arming keeps the wake word alive for the whole
+                // time you're away, instead of only until the first hiccup.
+                self.teardown()
+                if self.storedTrigger != nil {
+                    self.attempt = 0
+                    self.scheduleNextAttempt()
+                }
                 return
             }
             guard let heard = result?.bestTranscription.formattedString,
@@ -115,6 +181,10 @@ final class WakeWordListener: NSObject {
                 callback?()
             }
         }
+
+        failedToArm = false
+        startHealthCheck()
+        return true
     }
 
     private var chimePlayer: AVAudioPlayer?
@@ -139,7 +209,30 @@ final class WakeWordListener: NSObject {
         }
     }
 
+    /// Stops for good: no more retries, nothing left armed. Used when
+    /// something else needs the mic (a real turn starting, the app coming
+    /// back to the foreground, muting).
     func stop() {
+        pendingRetry?.cancel()
+        pendingRetry = nil
+        storedTrigger = nil
+        attempt = 0
+        teardown()
+        // Deactivating here (unlike InterruptListener, which never touches
+        // the session) is correct specifically because this is the only
+        // thing using the session while armed — whoever runs next
+        // (SpeechRecognizer, AudioPlayer, SystemVoice) configures it fresh
+        // for themselves regardless, so there's no shared state to protect
+        // by leaving it active.
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    /// Releases the mic and recogniser but keeps `storedTrigger`, so a
+    /// failed or dropped attempt can be retried without the caller having to
+    /// re-arm it.
+    private func teardown() {
+        healthCheck?.invalidate()
+        healthCheck = nil
         audioEngine?.stop()
         audioEngine?.inputNode.removeTap(onBus: 0)
         audioEngine = nil
@@ -148,13 +241,26 @@ final class WakeWordListener: NSObject {
         task?.cancel()
         task = nil
         onTrigger = nil
-        // Deactivating here (unlike InterruptListener, which never touches
-        // the session) is correct specifically because this is the only
-        // thing using the session while armed — whoever runs next
-        // (SpeechRecognizer, AudioPlayer, SystemVoice) configures it fresh
-        // for themselves regardless, so there's no shared state to protect
-        // by leaving it active.
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    /// Recognition can stop delivering results without ever reporting an
+    /// error — the engine gets stopped by an audio-session interruption (a
+    /// phone call, another app taking the mic), and nothing tells us. Left
+    /// alone, the wake word would appear armed while being deaf. This
+    /// notices within half a minute and re-arms.
+    private func startHealthCheck() {
+        healthCheck?.invalidate()
+        let timer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.storedTrigger != nil else { return }
+                guard self.audioEngine?.isRunning != true else { return }
+                self.teardown()
+                self.attempt = 0
+                self.scheduleNextAttempt()
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        healthCheck = timer
     }
 
     /// Accent-, case- and punctuation-insensitive, same approach as
