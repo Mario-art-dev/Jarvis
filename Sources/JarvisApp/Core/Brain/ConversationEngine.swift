@@ -447,7 +447,9 @@ final class ConversationEngine: ObservableObject {
                 // Not while muted: if you've switched the mic off, it stays
                 // off — no listening of any kind behind your back.
                 if !isMuted {
-                    interruptListener.start { [weak self] in
+                    // Passing the reply's own text lets a bare "calla" work
+                    // for it — see InterruptListener.shortPhrase.
+                    interruptListener.start(whileSaying: text) { [weak self] in
                         self?.audioPlayer.stop()
                     }
                 }

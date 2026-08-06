@@ -26,12 +26,24 @@ import AVFoundation
 ///   the device.
 @MainActor
 final class InterruptListener {
-    /// Requiring "jarvis" before "calla" makes a false positive essentially
-    /// impossible — including from Jarvis's own voice echoing back through
-    /// the speaker into the mic, which is unavoidable here (there's no
-    /// hardware echo cancellation in this setup) and is why a single common
-    /// word like "calla" on its own wasn't dependable.
-    private static let triggerPhrase = "jarvis calla"
+    /// Plain "calla" is what anyone actually says to interrupt, and waiting
+    /// for the longer "jarvis calla" costs the better part of a second — so
+    /// the short form is accepted, and the false positive it used to risk is
+    /// handled directly instead of designed around.
+    ///
+    /// That risk was only ever Jarvis's own voice echoing back through the
+    /// speaker into the mic (there's no hardware echo cancellation here), so
+    /// it only exists when Jarvis is itself saying the word. `start` takes
+    /// the text being spoken: if that text contains "calla", this falls back
+    /// to requiring the full "jarvis calla" for that one reply, which Jarvis
+    /// will not say by accident. Every other reply — the overwhelming
+    /// majority — stops on a bare "calla".
+    private static let shortPhrase = "calla"
+    private static let fullPhrase = "jarvis calla"
+
+    /// Set per-reply by `start`. True when Jarvis's own words include the
+    /// trigger, and only then is the longer phrase required.
+    private var requiresFullPhrase = false
 
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "es-ES"))
     private var request: SFSpeechAudioBufferRecognitionRequest?
@@ -42,12 +54,17 @@ final class InterruptListener {
     /// Starts listening for the phrase. Silently does nothing if anything
     /// isn't available — this is a convenience, never worth surfacing an
     /// error or blocking a reply over.
-    func start(onTrigger: @escaping () -> Void) {
+    ///
+    /// `whileSaying` is the text Jarvis is about to speak, used only to
+    /// decide whether a bare "calla" can be trusted for this reply (see
+    /// `shortPhrase`).
+    func start(whileSaying spokenText: String = "", onTrigger: @escaping () -> Void) {
         guard task == nil else { return }
         guard SFSpeechRecognizer.authorizationStatus() == .authorized,
               AVAudioSession.sharedInstance().recordPermission == .granted,
               let recognizer, recognizer.isAvailable else { return }
 
+        requiresFullPhrase = Self.normalize(spokenText).contains(Self.shortPhrase)
         self.onTrigger = onTrigger
 
         let newRequest = SFSpeechAudioBufferRecognitionRequest()
@@ -88,7 +105,7 @@ final class InterruptListener {
                 return
             }
             guard let heard = result?.bestTranscription.formattedString,
-                  Self.containsTrigger(heard) else { return }
+                  self.containsTrigger(heard) else { return }
             let callback = self.onTrigger
             self.stop()
             callback?()
@@ -108,13 +125,21 @@ final class InterruptListener {
         // owns it for the duration of the reply (see the class comment).
     }
 
+    /// Bare "calla" normally, the full "jarvis calla" only for a reply whose
+    /// own text says "calla" and could therefore trigger itself.
+    private func containsTrigger(_ text: String) -> Bool {
+        let heard = Self.normalize(text)
+        return requiresFullPhrase
+            ? heard.contains(Self.fullPhrase)
+            : heard.contains(Self.shortPhrase)
+    }
+
     /// Accent-, case- and punctuation-insensitive, since speech transcripts
     /// carry no punctuation and may or may not capitalise the name.
-    private static func containsTrigger(_ text: String) -> Bool {
+    private static func normalize(_ text: String) -> String {
         let folded = text.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
         let allowed = CharacterSet.alphanumerics.union(.whitespaces)
         let scrubbed = String(folded.unicodeScalars.map { allowed.contains($0) ? Character($0) : " " })
-        let collapsed = scrubbed.split(separator: " ").joined(separator: " ")
-        return collapsed.contains(triggerPhrase)
+        return scrubbed.split(separator: " ").joined(separator: " ")
     }
 }
