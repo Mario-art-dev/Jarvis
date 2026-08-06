@@ -33,6 +33,8 @@ if (!(globalThis as { crypto?: unknown }).crypto) {
 const DEFAULT_VOICE = "es-ES-AlvaroNeural";
 const EDGE_TTS_VOICE = process.env.EDGE_TTS_VOICE?.trim() || DEFAULT_VOICE;
 const DISABLED = process.env.EDGE_TTS_DISABLED === "1";
+/** A relative SSML rate, e.g. "+20%" or "-10%". Faster than Edge's own default. */
+const EDGE_TTS_RATE = process.env.EDGE_TTS_RATE?.trim() || "+20%";
 
 /** Beyond this, synthesis is slow enough to be worse than the alternatives. */
 const MAX_CHARS = 4000;
@@ -67,7 +69,7 @@ export async function synthesizeWithEdgeTts(text: string): Promise<string | null
 
 async function runEdgeTts(tts: MsEdgeTTS, text: string): Promise<Buffer> {
   await tts.setMetadata(EDGE_TTS_VOICE, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-  const { audioStream } = tts.toStream(text);
+  const { audioStream } = tts.toStream(text, { rate: EDGE_TTS_RATE });
 
   const chunks: Buffer[] = [];
   for await (const chunk of audioStream) {

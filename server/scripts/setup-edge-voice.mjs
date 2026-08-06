@@ -36,6 +36,9 @@ const ENV_FILE = join(SERVER_DIR, ".env");
 const ENV_EXAMPLE = join(SERVER_DIR, ".env.example");
 
 const DEFAULT_VOICE = "es-ES-AlvaroNeural";
+// Matches server/src/edgeTts.ts's default, so what you hear here is the same
+// speed Jarvis actually uses — not Edge's slower out-of-the-box pace.
+const RATE = process.env.EDGE_TTS_RATE?.trim() || "+20%";
 
 function playFile(path) {
   return new Promise((resolve) => {
@@ -56,7 +59,7 @@ async function synthesizeToFile(voiceName, text, outPath) {
   const tts = new MsEdgeTTS();
   try {
     await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-    const { audioStream } = tts.toStream(text);
+    const { audioStream } = tts.toStream(text, { rate: RATE });
     const chunks = [];
     for await (const chunk of audioStream) chunks.push(chunk);
     await writeFile(outPath, Buffer.concat(chunks));
