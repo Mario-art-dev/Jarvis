@@ -103,6 +103,12 @@ final class ConversationEngine: ObservableObject {
     private let systemVoice = SystemVoice()
     private var hasReportedVoiceFallback = false
     private var hasReportedWakeWordFailure = false
+    /// True for a turn that began with "Jarvis escucha" while the app was in
+    /// the background — the one case where the answer is spoken out loud
+    /// rather than saved for when you next open the app, since you were
+    /// standing there talking to it a moment ago.
+    private var startedByWakeWord = false
+    private var backgroundSubmit: Timer?
 
     private let config: AppConfig
     private let toolRegistry = ToolRegistry()
@@ -211,7 +217,25 @@ final class ConversationEngine: ObservableObject {
             keepAlive.stop()
             awaitingLongTask = false
             transcript.append(TranscriptEntry(speaker: "Jarvis", text: finalText))
-            if !isForeground {
+            // Read once and cleared here, so no branch below can leave it set
+            // — a stale true would make the *next* turn speak out loud after
+            // you'd walked away from it, which is the exact behaviour the
+            // notify-and-save path exists to avoid.
+            let viaWakeWord = startedByWakeWord
+            startedByWakeWord = false
+            if !isForeground && viaWakeWord && !wantsWrittenAnswer {
+                // You said "Jarvis escucha" and asked out loud a moment ago,
+                // so you're standing right there — answer out loud, the way
+                // any assistant worth the name would. This is the one
+                // backgrounded case where speaking isn't talking to an empty
+                // room, which is why the branch below exists at all.
+                //
+                // Playing audio while backgrounded is what the `audio`
+                // background mode (already declared for spoken replies) is
+                // for, and the app is necessarily still awake here — the
+                // wake word only heard you because it was recording.
+                await speak(finalText)
+            } else if !isForeground {
                 // Stepped away while this was running: notify now, and hold
                 // the answer so it's actually delivered when you come back
                 // — a written one stays on screen, a spoken one gets spoken
@@ -243,6 +267,8 @@ final class ConversationEngine: ObservableObject {
     /// failure deserves.
     private func handleTurnFailure(_ error: Error) {
         keepAlive.stop()
+        startedByWakeWord = false
+        stopBackgroundSubmitWatchdog()
         if let serverError = error as? ServerError, case .timedOut = serverError {
             awaitingLongTask = true
             let note = "Esto está llevando un rato. Sigo trabajando en ello — te aviso en cuanto lo tenga."
@@ -344,6 +370,8 @@ final class ConversationEngine: ObservableObject {
     func handleAppForegrounded() {
         isForeground = true
         keepAlive.stop()
+        // The view's own silence timer takes over from here.
+        stopBackgroundSubmitWatchdog()
         // Report before stopping — stop() is a full reset and clears this.
         // Said once per launch, like the voice fallback: worth knowing that
         // "Jarvis escucha" wasn't listening at all while you were away, not
@@ -380,15 +408,63 @@ final class ConversationEngine: ObservableObject {
     /// when you return — no separate handling needed here for that part.
     private func handleWakeWordTriggered() {
         guard state == .idle, !isMuted, config.isConfigured else { return }
+        startedByWakeWord = true
         state = .listening // didSet above stops wakeWordListener
         speech.requestAuthorization { [weak self] granted in
             guard let self else { return }
             guard granted else {
+                self.startedByWakeWord = false
                 self.state = .idle
                 return
             }
             self.speech.startListening()
+            self.startBackgroundSubmitWatchdog()
         }
+    }
+
+    /// Submits what you said after "Jarvis escucha", which the view's own
+    /// silence timer can't be relied on to do: that timer belongs to
+    /// ConversationView, and a backgrounded app's view is not a safe place
+    /// to put the only path that finishes a turn. Without this, the wake
+    /// word could hear you perfectly and then simply never send it.
+    ///
+    /// Foreground listening is deliberately left entirely alone — it already
+    /// works, and this only ever runs while backgrounded.
+    private func startBackgroundSubmitWatchdog() {
+        backgroundSubmit?.invalidate()
+        let timer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                guard !self.isForeground, self.state == .listening, self.speech.isListening else { return }
+
+                let heard = self.speech.transcript
+                let quietFor = self.speech.secondsSinceLastTranscriptChange()
+                // Same 3s pause the foreground uses to decide you've
+                // finished talking.
+                if !heard.isEmpty, quietFor >= 3.0 {
+                    self.stopBackgroundSubmitWatchdog()
+                    self.speech.stopListening()
+                    await self.handleUserUtterance(heard)
+                    return
+                }
+                // Nothing said at all after the chime: give the mic back
+                // rather than recording an empty room indefinitely. Going
+                // idle re-arms the wake word (see the state didSet).
+                if heard.isEmpty, quietFor >= 12 {
+                    self.stopBackgroundSubmitWatchdog()
+                    self.speech.stopListening()
+                    self.startedByWakeWord = false
+                    self.state = .idle
+                }
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        backgroundSubmit = timer
+    }
+
+    private func stopBackgroundSubmitWatchdog() {
+        backgroundSubmit?.invalidate()
+        backgroundSubmit = nil
     }
 
     /// Accent/case-insensitive match so "escríbeme", "Escribeme", etc. all
