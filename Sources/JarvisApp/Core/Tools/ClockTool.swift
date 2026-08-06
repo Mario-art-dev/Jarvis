@@ -36,6 +36,14 @@ struct ClockTool: JarvisTool {
     private static let alarmPrefix = "jarvis-alarm-"
     private static let timerPrefix = "jarvis-timer-"
 
+    /// Alarms and timers are local notifications, so with notifications off
+    /// they can be scheduled and simply never appear — the one failure here
+    /// that looks exactly like "alarms don't work" while nothing is actually
+    /// broken. Worth spelling out the exact path to fix it, since it's in
+    /// iOS Settings rather than anywhere inside Jarvis.
+    private static let notificationsDeniedMessage =
+        "Jarvis no tiene permiso para enviarte notificaciones, y las alarmas y temporizadores son notificaciones, así que no sonarían. Actívalo en Ajustes del iPhone, Notificaciones, Jarvis, y permite las notificaciones. Luego vuelve a pedírmelo."
+
     func execute(input: [String: Any]) async throws -> String {
         guard let action = input["action"] as? String else {
             throw ToolError.invalidInput("action")
@@ -61,7 +69,7 @@ struct ClockTool: JarvisTool {
             throw ToolError.invalidInput("time_hhmm (formato HH:mm, ej. 07:30)")
         }
         guard try await ensureNotificationsAllowed() else {
-            throw ToolError.permissionDenied("permiso de notificaciones (actívalo en Ajustes para que puedan sonar las alarmas)")
+            throw ToolError.permissionDenied(Self.notificationsDeniedMessage)
         }
 
         let rawLabel = (input["label"] as? String)?.trimmingCharacters(in: .whitespaces) ?? ""
@@ -88,7 +96,7 @@ struct ClockTool: JarvisTool {
             throw ToolError.invalidInput("minutes")
         }
         guard try await ensureNotificationsAllowed() else {
-            throw ToolError.permissionDenied("permiso de notificaciones (actívalo en Ajustes para que puedan sonar los temporizadores)")
+            throw ToolError.permissionDenied(Self.notificationsDeniedMessage)
         }
 
         let content = UNMutableNotificationContent()

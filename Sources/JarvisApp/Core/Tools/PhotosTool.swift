@@ -14,7 +14,7 @@ import UIKit
 /// and it says so" instead of blowing the server's tool-call timeout.
 struct PhotosTool: JarvisTool {
     let name = "search_photos"
-    let description = "Busca fotos en la galería por rango de fechas, favoritas o capturas de pantalla. Si se da content_query, además clasifica el contenido (ej. 'dog', 'beach', 'car') sobre las fotos que cumplan el filtro."
+    let description = "Busca fotos en la galería. filter=all recorre la fototeca entera; recent/favorites/screenshots/today la acotan. Si se da content_query, además clasifica el contenido (ej. 'dog', 'beach', 'car') sobre las fotos que cumplan el filtro."
     let inputSchema: [String: Any] = [
         "type": "object",
         "properties": [
@@ -84,20 +84,22 @@ struct PhotosTool: JarvisTool {
         let deadline = Date().addingTimeInterval(scanBudget)
         var matches = 0
         var scanned = 0
+        var unavailable = 0
 
         while scanned < ceiling, Date() < deadline {
             let end = min(scanned + batchSize, ceiling)
             let batch = (scanned..<end).map { assets.object(at: $0) }
-            let results = await withTaskGroup(of: Bool.self) { group -> [Bool] in
+            let results = await withTaskGroup(of: ClassificationResult.self) { group -> [ClassificationResult] in
                 for asset in batch {
                     group.addTask { await Self.classify(asset: asset, matches: needle) }
                 }
-                var out: [Bool] = []
+                var out: [ClassificationResult] = []
                 for await result in group { out.append(result) }
                 return out
             }
             scanned += results.count
-            matches += results.filter { $0 }.count
+            matches += results.filter { $0 == .match }.count
+            unavailable += results.filter { $0 == .unavailable }.count
         }
 
         // Say plainly when the whole library wasn't covered, rather than
@@ -106,27 +108,47 @@ struct PhotosTool: JarvisTool {
             ? "las \(total) fotos"
             : "las \(scanned) fotos más recientes (de \(total))"
 
+        // Photos kept only in iCloud (Optimizar almacenamiento) have no full
+        // copy on the device, and this deliberately doesn't download them —
+        // thousands of downloads would blow the time budget several times
+        // over. Reporting how many were skipped keeps "no encontré nada"
+        // honest: without it, a library that lives mostly in iCloud looks
+        // like a library with nothing in it.
+        let skipped = unavailable > 0
+            ? " No he podido mirar \(unavailable) porque están en iCloud y no descargadas en el móvil."
+            : ""
+
         if matches == 0 {
-            return "He revisado \(coverage) y no he encontrado ninguna que parezca de \"\(contentQuery)\"."
+            return "He revisado \(coverage) y no he encontrado ninguna que parezca de \"\(contentQuery)\".\(skipped)"
         }
-        return "He encontrado \(matches) fotos que parecen de \"\(contentQuery)\", revisando \(coverage)."
+        return "He encontrado \(matches) fotos que parecen de \"\(contentQuery)\", revisando \(coverage).\(skipped)"
     }
 
-    private static func classify(asset: PHAsset, matches query: String) async -> Bool {
-        guard let image = await thumbnail(for: asset), let cgImage = image.cgImage else { return false }
+    private enum ClassificationResult {
+        case match
+        case noMatch
+        /// Couldn't be examined at all — almost always an iCloud-only photo
+        /// with no local copy. Distinct from noMatch so it never gets counted
+        /// as "looked at it, wasn't a dog".
+        case unavailable
+    }
+
+    private static func classify(asset: PHAsset, matches query: String) async -> ClassificationResult {
+        guard let image = await thumbnail(for: asset), let cgImage = image.cgImage else { return .unavailable }
 
         let request = VNClassifyImageRequest()
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
         do {
             try handler.perform([request])
         } catch {
-            return false
+            return .unavailable
         }
 
-        guard let observations = request.results else { return false }
-        return observations.contains { observation in
+        guard let observations = request.results else { return .noMatch }
+        let matched = observations.contains { observation in
             observation.confidence > 0.15 && observation.identifier.lowercased().contains(query)
         }
+        return matched ? .match : .noMatch
     }
 
     private static func thumbnail(for asset: PHAsset) async -> UIImage? {
