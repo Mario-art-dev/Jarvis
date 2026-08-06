@@ -12,6 +12,7 @@ node_modules/
 dist/
 .env
 .jarvis-session-id
+.jarvis-capabilities
 .jarvis-profile.md
 
 # Piper: binario y modelo de voz descargados por scripts/install-piper.sh.

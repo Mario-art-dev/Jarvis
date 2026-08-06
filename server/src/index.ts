@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { createServer } from "node:http";
-import { randomUUID } from "node:crypto";
-import { readFileSync, writeFileSync } from "node:fs";
+import { randomUUID, createHash } from "node:crypto";
+import { readFileSync, writeFileSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { WebSocketServer, type WebSocket } from "ws";
@@ -30,6 +30,7 @@ const CLAUDE_EXECUTABLE_PATH = process.env.CLAUDE_CODE_EXECUTABLE_PATH;
 // turns instead of starting from scratch every time he's asked something.
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SESSION_FILE = join(__dirname, "..", ".jarvis-session-id");
+const CAPABILITIES_FILE = join(__dirname, "..", ".jarvis-capabilities");
 
 function loadSessionId(): string | undefined {
   try {
@@ -48,7 +49,81 @@ function saveSessionId(id: string) {
   }
 }
 
+/**
+ * A fingerprint of what Jarvis can currently do — the instructions plus the
+ * list of tool names. Changing either means the resumed conversation now
+ * contradicts reality.
+ */
+function capabilitiesFingerprint(): string {
+  return createHash("sha256")
+    .update(SYSTEM_PROMPT)
+    .update(JARVIS_TOOL_NAMES.join(","))
+    .digest("hex");
+}
+
+/**
+ * Drops the saved conversation when Jarvis's capabilities have changed since
+ * it was started.
+ *
+ * The session is deliberately kept forever so Jarvis remembers earlier turns
+ * — but that memory includes every "no puedo ver más que lo de hoy" and "no
+ * puedo crear alarmas" it ever said, from before those tools existed. Claude
+ * stays consistent with its own history, so it kept repeating those refusals
+ * long after the features shipped and worked, which is indistinguishable
+ * from the feature still being broken. Anything remembered on purpose lives
+ * in the profile file (see remember_fact), not in this transcript, so
+ * starting fresh here costs nothing that matters.
+ */
+function discardSessionIfCapabilitiesChanged() {
+  const current = capabilitiesFingerprint();
+  let previous: string | undefined;
+  try {
+    previous = readFileSync(CAPABILITIES_FILE, "utf8").trim();
+  } catch {
+    previous = undefined;
+  }
+  if (previous === current) return;
+
+  if (previous !== undefined && sessionId) {
+    console.log(
+      "Jarvis ha cambiado de capacidades desde la última vez: empiezo conversación nueva para que no arrastre lo que antes no sabía hacer."
+    );
+  }
+  sessionId = undefined;
+  try {
+    rmSync(SESSION_FILE, { force: true });
+    writeFileSync(CAPABILITIES_FILE, current, "utf8");
+  } catch (error) {
+    console.error("No pude reiniciar la sesión de Jarvis:", error);
+  }
+}
+
 let sessionId: string | undefined = loadSessionId();
+
+/**
+ * Every tool Jarvis is allowed to use. Single source of truth: it's passed
+ * to the SDK as `allowedTools`, and it's half of the capabilities
+ * fingerprint above — so adding a tool here is enough to make the next
+ * startup drop a stale conversation that predates it.
+ */
+const JARVIS_TOOL_NAMES = [
+  "WebSearch",
+  "WebFetch",
+  "mcp__jarvis__web_search",
+  "mcp__jarvis__open_app",
+  "mcp__jarvis__search_photos",
+  "mcp__jarvis__calendar",
+  "mcp__jarvis__reminders",
+  "mcp__jarvis__search_contacts",
+  "mcp__jarvis__get_weather",
+  "mcp__jarvis__play_music",
+  "mcp__jarvis__music_control",
+  "mcp__jarvis__check_gmail",
+  "mcp__jarvis__notes_content",
+  "mcp__jarvis__clock_action",
+  "mcp__jarvis__files_content",
+  "mcp__jarvis__remember_fact"
+];
 
 if (!AUTH_TOKEN) {
   console.error(
@@ -81,7 +156,16 @@ comparativas) y responde con lo que encuentres, sin abrir nada en el \
 móvil. mcp__jarvis__web_search es solo para cuando el usuario quiera ver \
 la búsqueda en su pantalla. Usa el resto de herramientas de Jarvis según \
 la petición (abrir apps, calendario, recordatorios, contactos, fotos, \
-tiempo, música, Gmail). Para llamar o escribir a alguien por su nombre, \
+tiempo, música, Gmail). REGLA IMPORTANTE: si te piden "abre X", "ábreme X", \
+"entra en X" o "ponme la app de X", eso SIEMPRE es \
+mcp__jarvis__open_app con el target de esa app, nunca otra herramienta, \
+aunque exista una que suene parecida. Abrir la app Fotos es open_app \
+target=photos, NO search_photos (esa solo busca fotos concretas). Abrir la \
+app Reloj es open_app target=clock, NO clock_action (esa solo pone alarmas). \
+Abrir Safari o Google es open_app target=safari/google, NO WebSearch ni \
+web_search. Y si open_app te devuelve que no ha podido abrirla, dile al \
+usuario exactamente lo que te ha contestado la herramienta, sin inventar \
+otro motivo ni decir que sí la has abierto. Para llamar o escribir a alguien por su nombre, \
 resuelve el número con mcp__jarvis__search_contacts (con prefijo de país \
 si hace falta) y pásalo a mcp__jarvis__open_app; no hace falta que \
 limpies el formato, la app lo hace sola. Elige el target según lo que \
@@ -119,10 +203,31 @@ sistema de archivos ni terminal en este Mac: todo pasa por tus \
 herramientas, que corren en el iPhone del usuario salvo la búsqueda web \
 y el tiempo, que corren aquí.`;
 
+// Has to run after SYSTEM_PROMPT exists (it's half the fingerprint) and
+// after sessionId has been loaded, since this may clear it.
+discardSessionIfCapabilitiesChanged();
+
 type PendingCall = {
   resolve: (text: string) => void;
   timeout: NodeJS.Timeout;
 };
+
+/**
+ * "jueves, 6 de agosto de 2026, 11:42" — in this Mac's own locale and time
+ * zone, which is the same one the user is standing in, so no conversion or
+ * UTC confusion ever reaches Claude.
+ */
+function describeNow(): string {
+  return new Intl.DateTimeFormat("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(new Date());
+}
 
 const httpServer = createServer((_req, res) => {
   res.writeHead(200, { "Content-Type": "text/plain" });
@@ -287,9 +392,19 @@ wss.on("connection", (ws: WebSocket) => {
       // moment ago is already known on the very next message, and this
       // stays present even if the resumed session itself ever gets summarized.
       const profile = loadProfile();
-      const systemPrompt = profile
-        ? `${SYSTEM_PROMPT}\n\nDatos permanentes que ya sabes sobre el usuario:\n${profile}`
-        : SYSTEM_PROMPT;
+      // Same reasoning, and then some: the session is resumed across days
+      // (see .jarvis-session-id), so anything baked in at startup would go
+      // stale — and without this Jarvis had no idea what day or time it was
+      // at all, which broke "¿qué hora es?" outright and quietly made every
+      // relative date wrong ("mañana a las cinco" landing on the wrong day).
+      const systemPrompt = [
+        SYSTEM_PROMPT,
+        `\n\nAhora mismo es ${describeNow()}. Esa es la hora real, actualizada en \
+este mismo mensaje: úsala tal cual para decir la hora o la fecha y para \
+calcular cualquier momento relativo (hoy, mañana, este finde, dentro de dos \
+horas) sin preguntar ni buscarla por internet.`,
+        profile ? `\n\nDatos permanentes que ya sabes sobre el usuario:\n${profile}` : ""
+      ].join("");
 
       try {
         const stream = query({
@@ -302,24 +417,7 @@ wss.on("connection", (ws: WebSocket) => {
             // y el resto siguen desactivadas: nunca tocan archivos ni
             // ejecutan comandos en este Mac.
             tools: ["WebSearch", "WebFetch"],
-            allowedTools: [
-              "WebSearch",
-              "WebFetch",
-              "mcp__jarvis__web_search",
-              "mcp__jarvis__open_app",
-              "mcp__jarvis__search_photos",
-              "mcp__jarvis__calendar",
-              "mcp__jarvis__reminders",
-              "mcp__jarvis__search_contacts",
-              "mcp__jarvis__get_weather",
-              "mcp__jarvis__play_music",
-              "mcp__jarvis__music_control",
-              "mcp__jarvis__check_gmail",
-              "mcp__jarvis__notes_content",
-              "mcp__jarvis__clock_action",
-              "mcp__jarvis__files_content",
-              "mcp__jarvis__remember_fact"
-            ],
+            allowedTools: JARVIS_TOOL_NAMES,
             // Haiku instead of the CLI's default (Sonnet) — noticeably
             // faster to respond, at the cost of thinking a bit less deeply
             // on complex multi-step comparisons. Trade explicitly requested

@@ -59,7 +59,25 @@ struct AppLauncherTool: JarvisTool {
         }
 
         guard opened else {
-            throw ToolError.notSupported("\(target) no está instalada o no se puede abrir")
+            if target == "clock" {
+                // Not a bug to keep chasing: Apple ships no URL scheme for
+                // the Clock app at all, so no app can open it. Saying so
+                // plainly beats another "no está instalada", which sounds
+                // like something that could be fixed by reinstalling.
+                throw ToolError.notSupported(
+                    "la app Reloj no se puede abrir desde otra app: Apple no publica ninguna forma de hacerlo, así que ni Jarvis ni ninguna otra app puede. Hay que abrirla a mano. Las alarmas y temporizadores de Jarvis sí funcionan sin abrirla."
+                )
+            }
+            // Naming the exact URLs that were refused, rather than a flat
+            // "no está instalada", is the difference between a fixable
+            // report and another round of guessing: several of these schemes
+            // are undocumented third-party ones, and canOpenURL gives the
+            // same false for "app isn't installed", "scheme is wrong" and
+            // "scheme is missing from LSApplicationQueriesSchemes".
+            let tried = candidates.map(\.absoluteString).joined(separator: ", ")
+            throw ToolError.notSupported(
+                "no he podido abrir \(target). iOS ha rechazado \(tried) — o esa app no está instalada, o su enlace de apertura ya no es ese."
+            )
         }
         return "Abriendo \(target)."
     }
@@ -164,15 +182,26 @@ struct AppLauncherTool: JarvisTool {
         case "google":
             // googleapp:// is the current scheme for the Google app;
             // google:// is the older one, kept as a fallback for whichever
-            // version happens to be installed.
+            // version happens to be installed. The https URL last is the
+            // safety net described in the "marca" case below.
             let url = extra.isEmpty
-                ? [URL(string: "googleapp://"), URL(string: "google://")]
-                : [URL(string: "googleapp://search?q=\(encoded)"), URL(string: "google://search?q=\(encoded)")]
+                ? [URL(string: "googleapp://"), URL(string: "google://"), URL(string: "https://www.google.com")]
+                : [
+                    URL(string: "googleapp://search?q=\(encoded)"),
+                    URL(string: "google://search?q=\(encoded)"),
+                    URL(string: "https://www.google.com/search?q=\(encoded)")
+                  ]
             return url.compactMap { $0 }
         case "shortcuts":
             return [URL(string: "shortcuts://")].compactMap { $0 }
         case "marca":
-            return [URL(string: "marca://")].compactMap { $0 }
+            // marca:// is an unverifiable guess at an undocumented scheme,
+            // so the site's own https URL follows it as a safety net: iOS
+            // routes an https URL to the app itself when that app claims the
+            // domain (a universal link), and to the browser when it doesn't.
+            // Either way the user ends up looking at Marca, which is what
+            // they asked for — whereas a wrong scheme alone just fails.
+            return [URL(string: "marca://"), URL(string: "https://www.marca.com")].compactMap { $0 }
         case "chatgpt":
             return [URL(string: "chatgpt://")].compactMap { $0 }
         case "claude":
