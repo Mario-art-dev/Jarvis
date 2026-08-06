@@ -15,7 +15,21 @@ struct TranscriptEntry: Identifiable {
 @MainActor
 final class ConversationEngine: ObservableObject {
     @Published var transcript: [TranscriptEntry] = []
-    @Published var state: JarvisState = .idle
+    /// Arms/disarms WakeWordListener on every transition: idle hands the mic
+    /// to it (only actually starts listening while backgrounded — see
+    /// rearmWakeWordIfNeeded), anything else takes the mic away from it
+    /// immediately, since exactly one of {WakeWordListener, SpeechRecognizer,
+    /// AudioPlayer, SystemVoice} may own the audio session at a time.
+    @Published var state: JarvisState = .idle {
+        didSet {
+            guard state != oldValue else { return }
+            if state == .idle {
+                rearmWakeWordIfNeeded()
+            } else {
+                wakeWordListener.stop()
+            }
+        }
+    }
     @Published var lastError: String?
     /// Non-nil while a written (not spoken) answer is on screen — set when
     /// the user's utterance contained "escríbeme". The view shows this as
@@ -82,6 +96,9 @@ final class ConversationEngine: ObservableObject {
     /// Its own recognizer, entirely separate from `speech` — see
     /// InterruptListener for why that isolation matters.
     private let interruptListener = InterruptListener()
+    /// "Jarvis escucha" — its own recognizer too, for the same reason. See
+    /// WakeWordListener for why it only matters while backgrounded.
+    private let wakeWordListener = WakeWordListener()
     /// Fallback voice for when ElevenLabs can't synthesise (see speak).
     private let systemVoice = SystemVoice()
     private var hasReportedVoiceFallback = false
@@ -180,6 +197,13 @@ final class ConversationEngine: ObservableObject {
 
         state = .thinking
         beginBackgroundTask()
+        // Normally handleAppBackgrounded starts this the moment you step
+        // away mid-turn. A turn that *starts* while already backgrounded —
+        // ej. one triggered by "Jarvis escucha" — never passes through
+        // there, so it needs the same extension started explicitly here or
+        // a long answer would get cut off by the ~30s background-task grace
+        // period alone.
+        if !isForeground { keepAlive.start() }
         do {
             let finalText = try await serverClient.ask(text, config: config)
             endBackgroundTask()
@@ -268,9 +292,10 @@ final class ConversationEngine: ObservableObject {
         isMuted.toggle()
         guard isMuted else { return }
         speech.stopListening()
-        // Muting mid-reply also stops it watching for "Jarvis calla" — mic
-        // off means mic off, whatever it was being used for.
+        // Muting also stops "Jarvis calla" and "Jarvis escucha" — mic off
+        // means mic off, whatever it was being used for.
         interruptListener.stop()
+        wakeWordListener.stop()
         if state == .listening { state = .idle }
     }
 
@@ -302,16 +327,59 @@ final class ConversationEngine: ObservableObject {
             // time you open it. See BackgroundKeepAlive.
             keepAlive.start()
         case .idle:
-            break
+            // Nothing else owns the mic right now — this is exactly when
+            // "Jarvis escucha" should start listening for you, since
+            // foreground's continuous listening (which would otherwise make
+            // this redundant) doesn't apply while backgrounded.
+            rearmWakeWordIfNeeded()
         }
     }
 
-    /// Counterpart to handleAppBackgrounded — drops the keep-alive as soon
-    /// as it isn't needed, so it never holds audio (or battery) while
-    /// you're actually looking at the app.
+    /// Counterpart to handleAppBackgrounded — drops the keep-alive and the
+    /// wake word as soon as neither is needed, so nothing holds audio (or
+    /// battery) while you're actually looking at the app. Foreground's own
+    /// continuous listening (see ConversationView.beginListeningIfIdle)
+    /// takes over instead.
     func handleAppForegrounded() {
         isForeground = true
         keepAlive.stop()
+        wakeWordListener.stop()
+    }
+
+    /// Starts "Jarvis escucha" listening, but only when it would actually be
+    /// useful: nothing else is using the mic (`state == .idle`), the app is
+    /// backgrounded (foreground already listens continuously with no wake
+    /// word needed — see beginListeningIfIdle), the mic hasn't been muted on
+    /// purpose, and there's somewhere to actually send a resulting turn.
+    /// Safe to call whenever any of those might have changed; a no-op
+    /// otherwise.
+    private func rearmWakeWordIfNeeded() {
+        guard !isForeground, state == .idle, !isMuted, config.isConfigured else {
+            wakeWordListener.stop()
+            return
+        }
+        wakeWordListener.start { [weak self] in
+            self?.handleWakeWordTriggered()
+        }
+    }
+
+    /// "Jarvis escucha" was heard while backgrounded — hand off to the same
+    /// mic normal foreground listening uses, so whatever you say next is
+    /// captured and submitted exactly like any other turn. If that turn
+    /// finishes while you're still away, handleUserUtterance's existing
+    /// `!isForeground` branch already notifies and queues the answer for
+    /// when you return — no separate handling needed here for that part.
+    private func handleWakeWordTriggered() {
+        guard state == .idle, !isMuted, config.isConfigured else { return }
+        state = .listening // didSet above stops wakeWordListener
+        speech.requestAuthorization { [weak self] granted in
+            guard let self else { return }
+            guard granted else {
+                self.state = .idle
+                return
+            }
+            self.speech.startListening()
+        }
     }
 
     /// Accent/case-insensitive match so "escríbeme", "Escribeme", etc. all
