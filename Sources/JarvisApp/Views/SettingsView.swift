@@ -48,6 +48,23 @@ struct SettingsView: View {
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 }
+
+                Section {
+                    HStack {
+                        Text("Build instalada")
+                        Spacer()
+                        Text(BuildInfo.commit)
+                            .foregroundColor(.secondary)
+                    }
+                    HStack {
+                        Text("Compilada")
+                        Spacer()
+                        Text(BuildInfo.builtAt)
+                            .foregroundColor(.secondary)
+                    }
+                } footer: {
+                    Text("Compara esto con el commit más reciente de GitHub Actions para saber si esta instalación ya tiene los últimos cambios.")
+                }
             }
             .navigationTitle("Ajustes")
             .toolbar {
